@@ -4,9 +4,13 @@
 #define SPARSEMATRIX 
 typedef struct{
     uint NZ,M,N;
-    uint *JA;
-    uint *IRP;
-    //TODO MACRO EXPANSION TO FILTER CUDA STUFF 
+    uint* JA;
+    //CSR SPECIFIC
+#ifdef ROWLENS
+    uint* RL;   //row lengths
+#endif
+    uint* IRP;
+    //CUDA SPECIFIC
     //uint MAXNZ;
 
     double *AS; 

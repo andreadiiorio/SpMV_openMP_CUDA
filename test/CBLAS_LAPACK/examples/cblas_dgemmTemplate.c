@@ -16,7 +16,7 @@ typedef unsigned int uint;
 static void printMatrix(uint M,uint N,double mat[][N]);
 int main()
 {
-    CBLAS_LAYOUT Layout=CblasRowMajor;;
+    CBLAS_LAYOUT Layout=CblasRowMajor;
     CBLAS_TRANSPOSE transa=CblasNoTrans, transb=CblasNoTrans;
 
     uint i,m=4, n=6, k=5, lda=k, ldb=n, ldc=n;

@@ -8,6 +8,9 @@ all: $(objs)
 SpGEMV_OMP.o: $(srcs)
 	$(MAKE) -C src $@
 	ln -fs src/$@ .
+test_SpGEMV_OMP.o:	$(srcs)
+	$(MAKE) -C test $@
+	ln -fs test/$@ .
 clean:
 	$(MAKE) -C src $@
 	rm -i *.o 

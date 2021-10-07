@@ -6,10 +6,11 @@
 #include "sparseMatrix.h"
 #include "mmio.h"
 #include "parser.h"
+#include "macros.h"
 #include "utils.h"
 
 
-double* readVector(char* fpath){
+double* readVector(char* fpath,uint* size){
     double *out,*tmp;
     uint i=0,vectorSize=VECTOR_STEP_MALLOC;
     FILE* fp = fopen(fpath,"r");
@@ -18,14 +19,14 @@ double* readVector(char* fpath){
         return NULL;
     }
     if (!(out = malloc(VECTOR_STEP_MALLOC*sizeof(*out)))){ 
-        fprintf(stderr,"vector read malloc fail for file\n");
+        ERRPRINT("vector read malloc fail for file\n");
         return NULL;
     }
     while (1){
         if (i >= vectorSize ){ //realloc the array
             if (!(tmp = reallocarray(out,
                 vectorSize+VECTOR_STEP_MALLOC,sizeof(*out)))){
-                fprintf(stderr,"reallocarray errd\n");
+                ERRPRINT("reallocarray errd\n");
                 goto _err;
             }
             out = tmp;
@@ -36,10 +37,12 @@ double* readVector(char* fpath){
         }
     }
     //REALLOC THE ARRAY TO THE FINAL SIZE
-    if (!(tmp = reallocarray(out,--i,sizeof(*out)))){
-        fprintf(stderr,"reallocarray errd\n");
+    *size = --i;
+    if (!(tmp = reallocarray(out,*size,sizeof(*out)))){
+        ERRPRINT("reallocarray errd\n");
         goto _err;
     }
+    VERBOSE printf("readed array rellocd to %u bytes\n",*size);
     out = tmp;
     
     return tmp;
@@ -49,11 +52,11 @@ double* readVector(char* fpath){
 }
 int MMCheck(MM_typecode mcode) {
     if (!mm_is_matrix(mcode)){
-        fprintf(stderr,"invalid matrix: not a matrix\n");
+        ERRPRINT("invalid matrix: not a matrix\n");
         return EXIT_FAILURE;
     }
     if (mm_is_dense(mcode) || mm_is_array(mcode) ){
-        fprintf(stderr,"invalid matrix: not a sparse matrix\n");
+        ERRPRINT("invalid matrix: not a sparse matrix\n");
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
@@ -68,7 +71,7 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
     uint nzIdx=0;         //expanded num of nz (in case of sym matrix)
     uint idx;
     double val;         //current entry val
-    uint row,col;       //current entry's row,col
+    uint row,col;       //current entry's row,col from MM -> 1 based
     uint* rowsNextCol = NULL;  //for each row -> next entry progressive idx
     int* _rowsLastCol = NULL; //for each row -> last added entry's columnIdx 
     entry* entries = NULL;     //MM parsed and exmpanded entries
@@ -102,18 +105,21 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
         CONSISTENCY_CHECKS{ 
             //NNZERO VAL CHECKS 
             if (!val){
-                fprintf(stderr,"invalid sparse matrix with 0 entry explicitly stored\n");
+                ERRPRINT("invalid sparse matrix with 0 entry explicitly stored\n");
                 goto _free;
             }
             //TODO USELESS ? ? ?
             if ((mm_is_pattern(mcode) && scanndRet != 2) || 
                 (!mm_is_pattern(mcode) && scanndRet != 3)){
-                fprintf(stderr,"invalid matrix: not consistent entry scannable\n");
+                ERRPRINT("invalid matrix: not consistent entry scannable\n");
                 goto _free;
             }
         }
        ////ADD THE CURRENT MATRIX ENTRY
-       mat -> IRP[row]++;   //now just count entries per row
+       //IRP will be builded as definition of Row start Pointers
+       //from shifted row lenghts: in IRP[1] <- len Row[0], IRP[2] <- len ROw[1]
+       //after, cumulating the row lens as increment to get row start idx ptrs
+       mat -> IRP[row]++;   //now just count entries per row 1based
        entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
 
         //also mirrored entry if sym.matrix with reflected idx inside matrix limits
@@ -128,17 +134,25 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
     /*if (SORT_MM_ENTRIES){ //force entries sorting before pack in CSR 
         //TODO SORT entries by key=row,col 
     }*/
+    
+    ////build core struct of CSR
     mat->NZ = nzIdx; //all rappresented element (expanding symmetric ones)
     
     if(!(mat->JA = malloc(nzIdx*sizeof(*(mat->JA))))){
-        fprintf(stderr,"JA malloc err\n");
+        ERRPRINT("JA malloc err\n");
         goto _free;
     }
     if(!(mat->AS = malloc(nzIdx*sizeof(*(mat->AS))))){
-        fprintf(stderr,"AS malloc err\n");
+        ERRPRINT("AS malloc err\n");
         goto _free;
     }
-    //IRP use rows lens as increments to build row index "pointer"
+#ifdef ROWLENS
+    //auxiliary row lengths array copied from original IRP just after parse
+    //exploit shifted row lenghts previously computed
+    memcpy(mat->RL,mat->IRP + 1,sizeof(*mat->IRP) * mat->M);
+    //for (uint i=1;i<mat->M+1;i++)mat->RL[i-1] = mat->IRP[i]-mat->IRP[i-1];//TODO usable with definition IRP
+#endif
+    //IRP: trasform rows lens as increments to build row index "pointer"
     //0th -> 0 mandatory; 1th = 0th row len, ...., M+1th = end of Mth row
     for (uint i=2; i<mat->M+1; i++)    mat->IRP[i] += mat->IRP[i-1];
     CONSISTENCY_CHECKS{
@@ -147,14 +161,13 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
             goto _free;
         }
     }
-    //build core struct of CSR
     for (uint i=0; i<nzIdx; i++) {
         row = entries[i].row;
         col = entries[i].col;
         val = entries[i].val;
         CONSISTENCY_CHECKS{
             if (_rowsLastCol[row] >= (int) col){
-                fprintf(stderr,"not sorted rows\n");
+                ERRPRINT("not sorted rows\n");
                 goto _free;
             }
             _rowsLastCol[row] = col;
@@ -191,7 +204,7 @@ spmat* MMtoCSR(char* matPath){
     if (MMCheck(mcode))     goto out;
     //alloc sparse matrix components
     if (!(mat = calloc(1,sizeof(*mat)))){
-        fprintf(stderr," mat struct alloc errd");
+        ERRPRINT(" mat struct alloc errd");
         goto out;
     }
     //parse sizes
@@ -200,9 +213,15 @@ spmat* MMtoCSR(char* matPath){
         goto err;
     }
     if (!(mat->IRP = calloc(mat->M+1,sizeof(*(mat->IRP))))){
-        fprintf(stderr,"IRP calloc err\n");
+        ERRPRINT("IRP calloc err\n");
         goto err;
     }
+#if ROWLENS
+    if (!(mat->RL = calloc(mat->M,sizeof(*(mat->RL))))){
+        ERRPRINT("IRP calloc err\n");
+        goto err;
+    }
+#endif
 
     if (_MMtoCSR(mat, fp, mcode)){
         fprintf(stderr,"MAT PARSE TO CSR ERR at:%s\n",matPath);
@@ -217,6 +236,9 @@ spmat* MMtoCSR(char* matPath){
     if(mat->IRP)    free(mat->IRP); 
     if(mat->AS)     free(mat->AS); 
     if(mat->JA)     free(mat->JA); 
+#if ROWLENS
+    if(mat->RL)     free(mat->RL); 
+#endif
     free(mat);
     fclose(fp);
     return NULL;

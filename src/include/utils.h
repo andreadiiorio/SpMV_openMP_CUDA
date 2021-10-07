@@ -1,18 +1,6 @@
 #ifndef UTILS
 #define UTILS
 
-///AUX MACROS
-typedef unsigned int uint;
-typedef unsigned long ulong;
-#define swap(a,b)           a=a^b;b=b^a;a=a^b
-#define IDX2D(i,j,nCols)    (j + i*nCols)
-#define DRNG_DEVFILE        "/dev/urandom"
-///Smart controls
-//TODO TOGGLE! ADD
-#define TRUE    1
-#define FALSE   0
-#define DEBUG if( TRUE )
-#define CONSISTENCY_CHECKS  if( TRUE )
 extern int urndFd;	//file pointer to DRNG_DEVFILE O_RDONLY opened
 int init_urndfd(); // wrap init urndFd
 /*
@@ -25,6 +13,8 @@ int init_urndfd(); // wrap init urndFd
  */
 //wrap read cycle over @fd
 int read_wrap(int fd,char* dst,size_t count);
+//return 0 if vectors a and b has elements that differ at most of DOUBLE_DIFF_THREASH 
+int doubleVectorsDiff(double* a, double* b, uint n);
 //fill a random vector in @v long @size doubles
 int fillRndVector(uint size, double* v);
 //read vector as a sequence of space separated double from file at @fpath 
@@ -34,5 +24,6 @@ int fillRndVector(uint size, double* v);
 double* CSRToDense(spmat* sparseMat);
 void printMatrix(double* mat,uint m,uint n,char justNZMarkers);
 void printSparseMatrix(spmat* sparseMat,char justNZMarkers);
+void printVector(double* v,uint size);
 
 #endif

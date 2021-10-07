@@ -22,6 +22,7 @@ spmat* MMtoCSR(char* matPath);
  * posix bool return
  */
 int MMCheck(MM_typecode typecode);
-double* readVector(char* fpath);
+//read vector of arbitrary size from @fpath, true lenght in *size
+double* readVector(char* fpath,uint* size);
 
 #endif
