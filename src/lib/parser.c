@@ -24,9 +24,8 @@ double* readVector(char* fpath,uint* size){
     }
     while (1){
         if (i >= vectorSize ){ //realloc the array
-            if (!(tmp = reallocarray(out,
-                vectorSize+VECTOR_STEP_MALLOC,sizeof(*out)))){
-                ERRPRINT("reallocarray errd\n");
+            if (!(tmp=realloc(out,vectorSize+VECTOR_STEP_MALLOC*sizeof(*out)))){
+                ERRPRINT("realloc errd\n");
                 goto _err;
             }
             out = tmp;
@@ -38,8 +37,8 @@ double* readVector(char* fpath,uint* size){
     }
     //REALLOC THE ARRAY TO THE FINAL SIZE
     *size = --i;
-    if (!(tmp = reallocarray(out,*size,sizeof(*out)))){
-        ERRPRINT("reallocarray errd\n");
+    if (!(tmp = realloc(out,*size*sizeof(*out)))){
+        ERRPRINT("realloc errd\n");
         goto _err;
     }
     VERBOSE printf("readed array rellocd to %u bytes\n",*size);
@@ -66,7 +65,7 @@ int MMCheck(MM_typecode mcode) {
  * expand simmetric matrix into a normal matrix with both parts
  * return sparse matrix
  */
-static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
+static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode){
     int out=EXIT_FAILURE, scanndRet=0;
     uint nzIdx=0;         //expanded num of nz (in case of sym matrix)
     uint idx;
@@ -81,11 +80,11 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode) {
         mat->NZ *= 2;
     }
     if (!(entries         = malloc(mat->NZ * sizeof(*entries))))  goto _free;
-    CONSISTENCY_CHECKS{
         if (!(rowsNextCol = calloc(mat->M,sizeof(*rowsNextCol)))) goto _free;
+    CONSISTENCY_CHECKS{
+        if (!(_rowsLastCol = malloc(mat->M*sizeof(*rowsNextCol)))) goto _free;
+        memset(_rowsLastCol,-1,mat->M*sizeof(*_rowsLastCol));
     }
-    if (!(_rowsLastCol    = malloc(mat->M*sizeof(*rowsNextCol)))) goto _free;
-    memset(_rowsLastCol,-1,mat->M*sizeof(*_rowsLastCol));
     ///parse MM fp lines
     while (1) { // Reading the fp until EOF
         if          (mm_is_pattern(mcode)){
@@ -193,19 +192,19 @@ spmat* MMtoCSR(char* matPath){
     FILE* fp = fopen(matPath, "r");
     if (!fp){
         perror("fopen");
-        goto out;
+        goto err;
     }
     //banner -> parse  matrix specs
     if (mm_read_banner(fp, &mcode) != 0) {
         fprintf(stderr,"mm_read_banner err at:%s\n",matPath);
-        goto out;
+        goto err;
     }
     //assert matrix is compatible with this app scope
     if (MMCheck(mcode))     goto out;
     //alloc sparse matrix components
     if (!(mat = calloc(1,sizeof(*mat)))){
         ERRPRINT(" mat struct alloc errd");
-        goto out;
+        goto err;
     }
     //parse sizes
     if(mm_read_mtx_crd_size(fp, &mat->M, &mat->N, &mat->NZ)){
@@ -216,7 +215,7 @@ spmat* MMtoCSR(char* matPath){
         ERRPRINT("IRP calloc err\n");
         goto err;
     }
-#if ROWLENS
+#ifdef ROWLENS
     if (!(mat->RL = calloc(mat->M,sizeof(*(mat->RL))))){
         ERRPRINT("IRP calloc err\n");
         goto err;
@@ -233,14 +232,8 @@ spmat* MMtoCSR(char* matPath){
     return mat;
 
     err:
-    if(mat->IRP)    free(mat->IRP); 
-    if(mat->AS)     free(mat->AS); 
-    if(mat->JA)     free(mat->JA); 
-#if ROWLENS
-    if(mat->RL)     free(mat->RL); 
-#endif
-    free(mat);
-    fclose(fp);
+    if (mat)    freeSpmat(mat);
+    if (fp)         fclose(fp);
     return NULL;
 }
 //TODO spmat* MMtoHELL(char* matPath){}

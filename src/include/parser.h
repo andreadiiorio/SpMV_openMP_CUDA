@@ -22,6 +22,9 @@ spmat* MMtoCSR(char* matPath);
  * posix bool return
  */
 int MMCheck(MM_typecode typecode);
+
+#define VECTOR_STEP_MALLOC  100
+#define RNDVECTORSIZE       VECTOR_STEP_MALLOC
 //read vector of arbitrary size from @fpath, true lenght in *size
 double* readVector(char* fpath,uint* size);
 

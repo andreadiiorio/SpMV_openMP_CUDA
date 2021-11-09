@@ -6,14 +6,18 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #include <errno.h>
+#include <limits.h>
 
+#include "macros.h"
 #include "sparseMatrix.h"
 #include "utils.h"
-#include "macros.h"
 
-int urndFd; //from utils
+
+int urndFd; //will point to urandom device file
+
 
 //rnd gen from /dev/random
 int read_wrap(int fd,char* dst,size_t count){
@@ -76,9 +80,43 @@ int createNewFile(char* const outFpath){
     return outFd;
 }
 
+int getConfig(CONFIG* conf){
+    int changes=EXIT_FAILURE;
+    char *varVal,*ptr;
+    ulong val;
+    if ((varVal = getenv(GRID_ROWS))){
+        val=strtoul(varVal,&ptr,10);
+        if (ptr==varVal || val>= UINT_MAX){
+            perror("strtol errd");
+        } else {
+            conf->gridRows = val;
+        }
+        changes = EXIT_SUCCESS;
+    }
+    if ((varVal = getenv(GRID_COLS))){
+        val=strtoul(varVal,&ptr,10);
+        if (ptr==varVal || val>= UINT_MAX){
+            perror("strtol errd");
+        } else {
+            conf->gridCols = val;
+        }
+        changes = EXIT_SUCCESS;
+    }
+    return changes;
+}
+/////LIB-SORTING -- WRAPPERS
+//comparing functions
+int cmpuint(const void* a, const void*b){
+    uint aa=*((uint*) a), bb = *((uint*) b);
+    return aa==bb?0:aa>bb?1:-1;
+}
+//sorting functions 
+void sortuint(uint* arr, uint len){
+    qsort(arr,len,sizeof(*arr),cmpuint);
+}
 ///MATH UTILS
 
-inline int rndDouble_sinAll(double* d){
+static inline int rndDouble_sinAll(double* d){
     if(read_wrap(urndFd,(void*) d,sizeof(*d))){
         ERRPRINT("read_wrap failed to read rnd double\n");
         return EXIT_FAILURE;
@@ -87,7 +125,7 @@ inline int rndDouble_sinAll(double* d){
     return EXIT_SUCCESS;
 }
 long _rndHold;  //permanent storage of rnd longs
-inline int rndDouble_sinDecimal(double* d){
+static inline int rndDouble_sinDecimal(double* d){
     if(read_wrap(urndFd,(void*) &_rndHold,sizeof(_rndHold))){
         ERRPRINT("read_wrap failed to read holder for rnd double\n");
         return EXIT_FAILURE;
@@ -95,7 +133,16 @@ inline int rndDouble_sinDecimal(double* d){
     *d = (_rndHold % MAXRND) + sin(_rndHold);
     return EXIT_SUCCESS;
 }
-     
+   
+void statsAvgVar(double* values,uint numVals, double* out){
+    double sum=0,sumSquare=0;
+    for (uint i=0;  i<numVals;  i++){
+        sum += values[i];
+        sumSquare += values[i]*values[i];
+    }
+    out[0]  =   sum/numVals;                            //AVG
+    out[1]  =   sumSquare/numVals - (out[0] * out[0]);  //VAR
+}
 
 /// MATRIX - VECTOR UTILS
 int fillRndVector(uint size, double* v){
@@ -107,34 +154,26 @@ int fillRndVector(uint size, double* v){
 
 int doubleVectorsDiff(double* a, double* b, uint n){
     double diff,maxDiff=0;
+    uint nnz = 0;
     for (uint i=0; i<n; i++){
         diff = ABS( a[i] - b[i] );
+        if (MAX(a[i],b[i]))     nnz++; //count nnz
         if( diff > DOUBLE_DIFF_THREASH ){
-            fprintf(stderr,"DIFF IN DOUBLE VECTORS: %lf > threash: %lf",
-                diff,DOUBLE_DIFF_THREASH);
+            fprintf(stderr,"DIFF IN DOUBLE VECTORS: %lf > threash=%lf\tat nnz:%u\n",
+                diff,DOUBLE_DIFF_THREASH,nnz);
             return EXIT_FAILURE;
         }
         else if (diff > maxDiff)    maxDiff = diff;
     }
-    VERBOSE printf("checked diff between 2 double vector with "
-        "max diff: %lf < threash: %lf\n",maxDiff,DOUBLE_DIFF_THREASH);
-    return EXIT_SUCCESS;
-}
-double* CSRToDense(spmat* sparseMat){
-    double* denseMat;
-    uint i,j,idxSparse;
-    if (!(denseMat = calloc(sparseMat->M*sparseMat->N, sizeof(*denseMat)))){
-        fprintf(stderr,"dense matrix alloc failed\n");
-        return  NULL;
-    }
-    for (i=0;i<sparseMat->M;i++){
-        for (idxSparse=sparseMat->IRP[i];idxSparse<sparseMat->IRP[i+1];++idxSparse){
-             j = sparseMat->JA[idxSparse];
-             //converting sparse item into dense entry
-             denseMat[IDX2D(i,j,sparseMat->N)] = sparseMat->AS[idxSparse]; 
+    DEBUG{
+        printf("checked diff between 2 double vector of %4u nnz with "
+          "max diff: %le < threash: %le\n",nnz,maxDiff,DOUBLE_DIFF_THREASH);
+        if (!maxDiff){ //self diff check uselss TODO REMOVE
+            if (!memcpy(a,b,n*sizeof(*a)))
+                printf("exact matching among the 2 double vectors\n!");
         }
     }
-    return denseMat;
+    return EXIT_SUCCESS;
 }
 
 void printMatrix(double* mat,uint m,uint n,char justNZMarkers){
@@ -150,17 +189,14 @@ void printMatrix(double* mat,uint m,uint n,char justNZMarkers){
     printf("\n");
 }
 
-void printSparseMatrix(spmat* spMatrix,char justNZMarkers){
-    double* denseMat = CSRToDense(spMatrix);
-    if (!denseMat)  return;
-#ifdef ROWLENS
-    for (ushort i=0; i<spMatrix->M; i++)    printf("%u\t%u\n",i,spMatrix->RL[i]);
-#endif
-    printMatrix(denseMat,spMatrix->M,spMatrix->N,justNZMarkers);
-    free(denseMat);
-}
 
 void printVector(double* v,uint size){
     for( uint i=0;i<size;i++)   printf("%1.1lf ",v[i]);
     printf("\n");
+}
+
+////VAR -- MISC
+
+inline int appendArr(uint val,APPENDARRAY* list){
+    return 0;   //TODO
 }
