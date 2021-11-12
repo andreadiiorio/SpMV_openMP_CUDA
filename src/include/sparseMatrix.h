@@ -26,7 +26,7 @@ typedef struct{
     uint    len;   //rowLen
     double* AS;    //row nnz    values
     uint*   JA;    //row nnz    colIndexes
-} SPACC;    ///TODO SPGEMM TH COPIED
+} SPACC; 
 
 /*
  * return !0 if col @j idx is in row @i of sparse mat @smat
@@ -93,6 +93,20 @@ inline spmat* allocSpMatrix(uint rows, uint cols){
     return mat;
 }
 
+///SPARSE MATRIX PARTITIONING
+/*
+ * partition CSR sparse matrix @A in @gridCols columns partitions 
+ * returning an offsets matrix out[i][j] = start of jth colPartition of row i
+ * subdivide @A columns in uniform cols ranges in the output 
+ */
+uint* colsOffsetsPartitioningUnifRanges(spmat* A,uint gridCols);
+
+/*
+ * partition CSR sparse matrix @A in @gridCols columns partitions as 
+ * indipended and allocated sparse matrixes and return them
+ * subdivide @A columns in uniform cols ranges in the output 
+ */
+spmat* colsPartitioningUnifRanges(spmat* A,uint gridCols);
 
 /*  
     check if sparse matrixes A<->B differ up to 

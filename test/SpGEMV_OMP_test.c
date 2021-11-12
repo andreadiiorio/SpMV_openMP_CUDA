@@ -23,6 +23,7 @@ double* SGEMVCBLAS(spmat* mat, double* inVect);
 
 CONFIG Conf = {
     .gridRows = 8,
+    .gridCols = 8,
 };
 
 //compute function interface and its pointer definitions
@@ -105,20 +106,23 @@ int main(int argc, char** argv){
     //// PARALLEL COMPUTATIONs TO CHECK
     //elapsed stats aux vars
     double times[AVG_TIMES_ITERATION],  timesInteral[AVG_TIMES_ITERATION];
-    double elapsedStats[2],  elapsedInternalStats[2];
+    double elapsedStats[2],  elapsedInternalStats[2], start,end;
     uint f;
     SPGEMV_INTERF spgemvFunc;
     for (f=0,spgemvFunc=SpgemvFuncs[f]; spgemvFunc; spgemvFunc=SpgemvFuncs[++f]){
         hprintsf("@computing SpGEMV with sparse matrix: %ux%u-%uNNZ  with func:\%u at:%p\t",
           mat->M,mat->N,mat->NZ,f,spgemvFunc);
         for (uint i=0;  i< AVG_TIMES_ITERATION; i++){
+            start = omp_get_wtime();
             if (spgemvFunc(mat,vector,&Conf,outVector)){
                 ERRPRINTS("compute func number:%u failed...\n",f);
                 goto _free;
             }
+            end = omp_get_wtime();
             if ((out = doubleVectorsDiff(oracleOut,outVector,mat->M))) goto _free;
-            times[i]        = Elapsed;
+            times[i]        = end - start;
             timesInteral[i] = ElapsedInternal;
+            ElapsedInternal = Elapsed = 0;
         }
         statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
         statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);

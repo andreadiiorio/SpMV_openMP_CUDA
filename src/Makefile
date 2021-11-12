@@ -10,7 +10,7 @@ CFLAGS+=-Wno-unused-label
 MACROS = -DDEBUGPRINT="if(FALSE)" -DCONSISTENCY_CHECKS="if(TRUE)"
 MACROS+= -DVERBOSE="if(FALSE)"
 
-objs = SpGEMM_OMP.o SpGEMM_CUDA.o
+objs = SpGEMV_OMP.o #SpGEMM_CUDA.o
 
 all: $(objs)
 .PHONY: all
