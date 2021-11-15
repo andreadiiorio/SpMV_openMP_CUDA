@@ -5,8 +5,8 @@
 #include "sparseMatrix.h" 
 
 typedef struct{
-    uint row;
-    uint col;
+    ulong row;
+    ulong col;
     double val;
 } entry;     //MatrixMarket COO entry
 
@@ -26,6 +26,6 @@ int MMCheck(MM_typecode typecode);
 #define VECTOR_STEP_MALLOC  100
 #define RNDVECTORSIZE       VECTOR_STEP_MALLOC
 //read vector of arbitrary size from @fpath, true lenght in *size
-double* readVector(char* fpath,uint* size);
+double* readVector(char* fpath,ulong* size);
 
 #endif

@@ -6,34 +6,52 @@
 #include "macros.h"
 
 typedef struct{
-    uint NZ,M,N;
-    uint* JA;
+    ulong NZ,M,N;
+    ulong* JA;
     //CSR SPECIFIC
 #ifdef ROWLENS
-    uint* RL;   //row lengths
+    ulong* RL;   //row lengths
 #endif
-    uint* IRP;
+    ulong* IRP;
     //CUDA SPECIFIC
-    //uint MAXNZ;
+    //ulong MAXNZ;
 
     double *AS; 
 } spmat; //describe a sparse matrix
 
 ////Sparse vector accumulator -- corresponding to a matrix portion
 typedef struct{
-    //uint    r;     //row index in the corresponding matrix
-    //uint    c;     //col index in the corresponding matrix
-    uint    len;   //rowLen
+    //ulong    r;     //row index in the corresponding matrix
+    //ulong    c;     //col index in the corresponding matrix
+    ulong   len;   //rowLen
     double* AS;    //row nnz    values
-    uint*   JA;    //row nnz    colIndexes
+    ulong*  JA;    //row nnz    colIndexes
 } SPACC; 
+
+//TODO ASSERT LEN>0 ommitted
+inline int BISECT_ARRAY(ulong target, ulong* arr, ulong len){
+    //if (len == 0)              return FALSE;
+    if (len <= 1)              return *arr == target; 
+    ulong middleIdx = (len-1) / 2;  //len=5-->2, len=4-->1
+    ulong middle    = arr[ middleIdx ];
+    if      (target == middle)  return TRUE;
+    else if (target <  middle)  return BISECT_ARRAY(target,arr,middleIdx); 
+    else    return BISECT_ARRAY(target,arr+middleIdx+1,middleIdx + (len-1)%2);
+}
 
 /*
  * return !0 if col @j idx is in row @i of sparse mat @smat
+ * bisection used --> O(log_2(ROWLENGHT))
  */
-inline int IS_NNZ(spmat* smat,uint i,uint j){
+inline int IS_NNZ(spmat* smat,ulong i,ulong j){
+    ulong rStart = smat->IRP[i];
+    ulong rLen   = smat->IRP[i+1] - rStart;
+    if (!rLen)  return FALSE;
+    return BISECT_ARRAY(j,smat->JA + rStart,rLen);
+}
+inline int IS_NNZ_linear(spmat* smat,ulong i,ulong j){    //linear -> O(ROWLENGHT)
     int out = 0;
-    for (uint x=smat->IRP[i]; x<smat->IRP[i+1] && !out; x++){
+    for (ulong x=smat->IRP[i]; x<smat->IRP[i+1] && !out; x++){
         out = (j == smat->JA[x]); 
     } 
     return out;
@@ -60,7 +78,7 @@ inline void freeSpAcc(SPACC* r){
 }
 ////alloc&init functions
 //alloc&init internal structures only dependent of dimensions @rows,@cols
-inline int allocSpMatrixInternal(uint rows, uint cols, spmat* mat){
+inline int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat){
     mat -> M = rows;
     mat -> N = cols;
     if (!(mat->IRP=calloc(mat->M+1,sizeof(*(mat->IRP))))){ //calloc only for 0th
@@ -79,7 +97,7 @@ inline int allocSpMatrixInternal(uint rows, uint cols, spmat* mat){
 }
 
 //alloc a sparse matrix of @rows rows and @cols cols 
-inline spmat* allocSpMatrix(uint rows, uint cols){
+inline spmat* allocSpMatrix(ulong rows, ulong cols){
 
     spmat* mat;
     if (!(mat = calloc(1,sizeof(*mat)))) { 
@@ -99,14 +117,14 @@ inline spmat* allocSpMatrix(uint rows, uint cols){
  * returning an offsets matrix out[i][j] = start of jth colPartition of row i
  * subdivide @A columns in uniform cols ranges in the output 
  */
-uint* colsOffsetsPartitioningUnifRanges(spmat* A,uint gridCols);
+ulong* colsOffsetsPartitioningUnifRanges(spmat* A,ulong gridCols);
 
 /*
  * partition CSR sparse matrix @A in @gridCols columns partitions as 
  * indipended and allocated sparse matrixes and return them
  * subdivide @A columns in uniform cols ranges in the output 
  */
-spmat* colsPartitioningUnifRanges(spmat* A,uint gridCols);
+spmat* colsPartitioningUnifRanges(spmat* A,ulong gridCols);
 
 /*  
     check if sparse matrixes A<->B differ up to 
@@ -116,7 +134,7 @@ int spmatDiff(spmat* A, spmat* B);
 ////dyn alloc of spGEMM output matrix
 /*
 ///size prediction of AB = @A * @B
-inline uint SpGEMMPreAlloc(spmat* A,spmat* B){
+inline ulong SpGEMMPreAlloc(spmat* A,spmat* B){
     //TODO BETTER PREALLOC HEURISTICS HERE 
     return MAX(A->NZ,B->NZ);
 }
@@ -140,7 +158,7 @@ inline spmat* initSpMatrixSpGEMM(spmat* A, spmat* B){
 
 #define REALLOC_FACTOR  1.5
 //realloc sparse matrix NZ arrays
-inline int reallocSpMatrix(spmat* mat,uint newSize){
+inline int reallocSpMatrix(spmat* mat,ulong newSize){
     mat->NZ *= newSize;
     void* tmp;
     if (!(tmp = realloc(mat->AS,mat->NZ * sizeof(*(mat->AS))))){

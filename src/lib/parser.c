@@ -10,9 +10,9 @@
 #include "utils.h"
 
 
-double* readVector(char* fpath,uint* size){
+double* readVector(char* fpath,ulong* size){
     double *out,*tmp;
-    uint i=0,vectorSize=VECTOR_STEP_MALLOC;
+    ulong i=0,vectorSize=VECTOR_STEP_MALLOC;
     FILE* fp = fopen(fpath,"r");
     if (!fp){
         perror("fopen vector file");
@@ -41,7 +41,7 @@ double* readVector(char* fpath,uint* size){
         ERRPRINT("realloc errd\n");
         goto _err;
     }
-    VERBOSE printf("readed array rellocd to %u bytes\n",*size);
+    VERBOSE printf("readed array rellocd to %lu bytes\n",*size);
     out = tmp;
     
     return tmp;
@@ -50,12 +50,12 @@ double* readVector(char* fpath,uint* size){
     return NULL;
 }
 int MMCheck(MM_typecode mcode) {
-    if (!mm_is_matrix(mcode)){
+    if (!mm_is_matrix(mcode)){  //consistency checks among flags in @mcode
         ERRPRINT("invalid matrix: not a matrix\n");
         return EXIT_FAILURE;
     }
-    if (mm_is_dense(mcode) || mm_is_array(mcode) ){
-        ERRPRINT("invalid matrix: not a sparse matrix\n");
+    if (mm_is_dense(mcode) ){   //|| mm_is_array(mcode) ){
+        ERRPRINT("invalid matrix: not a supported sparse matrix\tDENSE MAT\n");
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
@@ -67,11 +67,11 @@ int MMCheck(MM_typecode mcode) {
  */
 static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode){
     int out=EXIT_FAILURE, scanndRet=0;
-    uint nzIdx=0;         //expanded num of nz (in case of sym matrix)
-    uint idx;
+    ulong nzIdx=0;         //expanded num of nz (in case of sym matrix)
+    ulong idx;
     double val;         //current entry val
-    uint row,col;       //current entry's row,col from MM -> 1 based
-    uint* rowsNextCol = NULL;  //for each row -> next entry progressive idx
+    ulong row,col;       //current entry's row,col from MM -> 1 based
+    ulong* rowsNextCol = NULL;  //for each row -> next entry progressive idx
     int* _rowsLastCol = NULL; //for each row -> last added entry's columnIdx 
     entry* entries = NULL;     //MM parsed and exmpanded entries
     ///consistency checks
@@ -88,10 +88,10 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode){
     ///parse MM fp lines
     while (1) { // Reading the fp until EOF
         if          (mm_is_pattern(mcode)){
-            scanndRet = fscanf(fp, "%u %u\n", &row, &col);
+            scanndRet = fscanf(fp, "%lu %lu\n", &row, &col);
             val = 1.0;
         } else if   (mm_is_real(mcode) || (mm_is_integer(mcode))){
-            scanndRet = fscanf(fp, "%u %u %lf\n", &row, &col, &val);
+            scanndRet = fscanf(fp, "%lu %lu %lf\n", &row, &col, &val);
         }
         
 
@@ -149,18 +149,18 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode){
     //auxiliary row lengths array copied from original IRP just after parse
     //exploit shifted row lenghts previously computed
     memcpy(mat->RL,mat->IRP + 1,sizeof(*mat->IRP) * mat->M);
-    //for (uint i=1;i<mat->M+1;i++)mat->RL[i-1] = mat->IRP[i]-mat->IRP[i-1];//TODO usable with definition IRP
+    //for (ulong i=1;i<mat->M+1;i++)mat->RL[i-1] = mat->IRP[i]-mat->IRP[i-1];//TODO usable with definition IRP
 #endif
     //IRP: trasform rows lens as increments to build row index "pointer"
     //0th -> 0 mandatory; 1th = 0th row len, ...., M+1th = end of Mth row
-    for (uint i=2; i<mat->M+1; i++)    mat->IRP[i] += mat->IRP[i-1];
+    for (ulong i=2; i<mat->M+1; i++)    mat->IRP[i] += mat->IRP[i-1];
     CONSISTENCY_CHECKS{
         if (mat->IRP[mat->M] != mat->NZ){
-            fprintf(stderr,"IRP[M] %u != NZ %u\n",mat->IRP[mat->M],mat->NZ);
+            fprintf(stderr,"IRP[M] %lu != NZ %lu\n",mat->IRP[mat->M],mat->NZ);
             goto _free;
         }
     }
-    for (uint i=0; i<nzIdx; i++) {
+    for (ulong i=0; i<nzIdx; i++) {
         row = entries[i].row;
         col = entries[i].col;
         val = entries[i].val;
@@ -207,7 +207,8 @@ spmat* MMtoCSR(char* matPath){
         goto err;
     }
     //parse sizes
-    if(mm_read_mtx_crd_size(fp, &mat->M, &mat->N, &mat->NZ)){
+    //TODO OVERCOME uint limitation?
+    if(mm_read_mtx_crd_size(fp, (uint*) &mat->M, (uint*) &mat->N, (uint*) &mat->NZ)){
         fprintf(stderr,"mm_read_mtx_crd_size err at %s:\n",matPath);
         goto err;
     }

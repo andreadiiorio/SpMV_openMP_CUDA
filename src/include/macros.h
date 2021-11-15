@@ -61,6 +61,13 @@
 #ifndef AVG_TIMES_ITERATION
     #define AVG_TIMES_ITERATION         5
 #endif
+
+///CONSTS
+#ifndef TMPDIR
+    #define TMPDIR                      "/tmp/"
+#endif
+#define TMP_EXTRACTED_MARTIX    TMPDIR "extractedMatrix"
+
 ///aux types
 typedef unsigned char  uchar;
 typedef unsigned short ushort;

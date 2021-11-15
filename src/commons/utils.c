@@ -106,11 +106,18 @@ int getConfig(CONFIG* conf){
 }
 /////LIB-SORTING -- WRAPPERS
 //comparing functions
+int cmpulong(const void* a, const void*b){
+    ulong aa=*((ulong*) a), bb = *((ulong*) b);
+    return aa==bb?0:aa>bb?1:-1;
+}
 int cmpuint(const void* a, const void*b){
     uint aa=*((uint*) a), bb = *((uint*) b);
     return aa==bb?0:aa>bb?1:-1;
 }
 //sorting functions 
+void sortulong(ulong* arr, ulong len){
+    qsort(arr,len,sizeof(*arr),cmpulong);
+}
 void sortuint(uint* arr, uint len){
     qsort(arr,len,sizeof(*arr),cmpuint);
 }
@@ -145,28 +152,28 @@ void statsAvgVar(double* values,uint numVals, double* out){
 }
 
 /// MATRIX - VECTOR UTILS
-int fillRndVector(uint size, double* v){
-    for( uint x=0; x<size; ++x ){
+int fillRndVector(ulong size, double* v){
+    for( ulong x=0; x<size; ++x ){
         if(rndDouble_sinDecimal( v+x )) return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
 }
 
-int doubleVectorsDiff(double* a, double* b, uint n){
+int doubleVectorsDiff(double* a, double* b, ulong n){
     double diff,maxDiff=0;
-    uint nnz = 0;
-    for (uint i=0; i<n; i++){
+    ulong nnz = 0;
+    for (ulong i=0; i<n; i++){
         diff = ABS( a[i] - b[i] );
         if (MAX(a[i],b[i]))     nnz++; //count nnz
         if( diff > DOUBLE_DIFF_THREASH ){
-            fprintf(stderr,"DIFF IN DOUBLE VECTORS: %lf > threash=%lf\tat nnz:%u\n",
+            fprintf(stderr,"DIFF IN DOUBLE VECTORS: %lf > threash=%lf\tat nnz:%lu\n",
                 diff,DOUBLE_DIFF_THREASH,nnz);
             return EXIT_FAILURE;
         }
         else if (diff > maxDiff)    maxDiff = diff;
     }
     DEBUG{
-        printf("checked diff between 2 double vector of %4u nnz with "
+        printf("checked diff OK between 2 double vector of %lu nnz with "
           "max diff: %le < threash: %le\n",nnz,maxDiff,DOUBLE_DIFF_THREASH);
         if (!maxDiff){ //self diff check uselss TODO REMOVE
             if (!memcpy(a,b,n*sizeof(*a)))
@@ -176,9 +183,9 @@ int doubleVectorsDiff(double* a, double* b, uint n){
     return EXIT_SUCCESS;
 }
 
-void printMatrix(double* mat,uint m,uint n,char justNZMarkers){
-    printf("printing matrix: %u x %u\n",m,n);
-    uint i,j;
+void printMatrix(double* mat,ulong m,ulong n,char justNZMarkers){
+    printf("printing matrix: %lu x %lu\n",m,n);
+    ulong i,j;
     for (i=0;i<m;i++){
         for (j=0;j<n;j++){
             if (justNZMarkers)  printf("%s",mat[IDX2D(i,j,n)]?".":" ");
@@ -190,13 +197,61 @@ void printMatrix(double* mat,uint m,uint n,char justNZMarkers){
 }
 
 
-void printVector(double* v,uint size){
-    for( uint i=0;i<size;i++)   printf("%1.1lf ",v[i]);
+void printVector(double* v,ulong size){
+    for( ulong i=0;i<size;i++)   printf("%1.1lf ",v[i]);
     printf("\n");
 }
 
 ////VAR -- MISC
+/* search for pattern in @str from NULL terminated @patterns array
+ * return pointer of pattern in @str if any, otherwise NULL
+ */
+static inline char* searchPatternsInStr(char** patterns,char* str){
+    char* out = NULL;
+    for (char** p=patterns;  !out && *p;    p++)    out = strstr(str,*p);
+    return out;
+}
+/* search for pattern in @str from NULL terminated @patterns array
+ * return pointer of pattern in @str if any, otherwise NULL
+ */
+static inline char* searchPatternInStrs(char* pattern,char** strings){
+    char* out = NULL;
+    for (char** str=strings;  !out && *str;    str++)    out = strstr(*str,pattern);
+    return out;
+}
 
-inline int appendArr(uint val,APPENDARRAY* list){
+///DECOMPRESSION IN TMPFS  ; TODO vector not puttable here... figure out nicer way..
+char* COMPRESS_EXTENSIONS[] = { ".gz", ".xz", ".bz2", ".zip", NULL};
+#define STD_DECOMPR_FLAGS " -d -c "
+char* DECOMPRESS_CMDS[] = { "gzip" STD_DECOMPR_FLAGS, "xz" STD_DECOMPR_FLAGS, "bzip2" STD_DECOMPR_FLAGS,
+                           "unzip -c", NULL }; //zip is too old ;)
+int extractInTmpFS(char* path, char* tmpFsDecompressPath){
+    char* ext = searchPatternsInStr(COMPRESS_EXTENSIONS,path);
+    if (!ext)   return -1;    //NOT SUPPORTED COMPRESS EXTENSION -> TRY REGULAR PATH
+    //search first 2 char after dot of ext in DECOMPRESS_CMDS to get the decompress cmd
+    if (strlen(ext) < 3 ){
+        ERRPRINTS("NOT SUPPORTED DECOMPRESSION:\textension %s too short to be matched",ext);
+        return -1;
+    }
+    char extStart[3];
+    extStart[0] = ext[1];
+    extStart[1] = ext[2];
+    extStart[2] = '\0';
+    char* decompressCmdBase = searchPatternInStrs(extStart,DECOMPRESS_CMDS);
+    if (!decompressCmdBase){
+        ERRPRINTS("NOT SUPPORTED DECOMPRESS FOR %s\n",ext);
+        return -1;
+    }
+    uint cmdLen = strlen(decompressCmdBase) + strlen(path) + 4 + strlen(tmpFsDecompressPath);
+    char* decompressCmd = alloca(cmdLen+1);
+    if (snprintf(decompressCmd,cmdLen+1,"%s %s > %s",
+          decompressCmdBase,path,tmpFsDecompressPath) < 0){
+        ERRPRINT("extractInTmpFS, snprintf errd\n");
+    }
+    printf("decompressing %s --> %s\ncmd:\t%s \n ",path,tmpFsDecompressPath,decompressCmd);
+    return system(decompressCmd);
+}
+
+inline int appendArr(ulong val,APPENDARRAY* list){
     return 0;   //TODO
 }

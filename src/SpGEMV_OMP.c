@@ -18,9 +18,9 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
     #pragma omp parallel for schedule(runtime) private(acc)
-    for (uint r=0;  r<mat->M;   r++){
+    for (ulong r=0;  r<mat->M;   r++){
         acc = 0;
-        for (uint j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
+        for (ulong j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
            c = mat->JA[j];
            acc += mat->AS[j] * vect[c];
         }
@@ -31,7 +31,7 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    VERBOSE printf("spgemvRowsBasic with %u x %u- %u NZ CSR sp.Mat, elapsed %lf\n",
+    VERBOSE printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
@@ -43,15 +43,15 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     double acc;
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
-    uint rowBlock = mat->M / cfg->gridRows, rowBlockRem = mat->M % cfg->gridRows; 
-    uint block,startRow;
+    ulong rowBlock = mat->M / cfg->gridRows, rowBlockRem = mat->M % cfg->gridRows; 
+    ulong block,startRow;
     #pragma omp parallel for schedule(runtime) private(acc, block, startRow)
-    for (uint b=0;   b<cfg->gridRows;   b++){
+    for (ulong b=0;   b<cfg->gridRows;   b++){
         block      = UNIF_REMINDER_DISTRI(b,rowBlock,rowBlockRem);
         startRow   = UNIF_REMINDER_DISTRI_STARTIDX(b,rowBlock,rowBlockRem);
-        for (uint r=startRow;  r<startRow+block;  r++){
+        for (ulong r=startRow;  r<startRow+block;  r++){
             acc = 0;
-            for (uint j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
+            for (ulong j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
                c = mat->JA[j];
                acc += mat->AS[j] * vect[c];
             }
@@ -62,7 +62,7 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    VERBOSE printf("spgemvRowsBasic with %u x %u- %u NZ CSR sp.Mat, elapsed %lf\n",
+    VERBOSE printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
@@ -78,12 +78,12 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;
-    uint* offsets = NULL;   //aux matrix:   for each row -> colGroupStarts
+    ulong* offsets = NULL;   //aux matrix:   for each row -> colGroupStarts
     //2D INDEXING AUX
-    uint gridSize = cfg->gridRows * cfg->gridCols;
-    uint _rowBlock = mat->M / cfg->gridRows, _rowBlockRem = mat->M % cfg->gridRows; 
-    //uint _colBlock = mat->N / cfg->gridCols, _colBlockRem = mat->N % cfg->gridCols;
-    uint startRow,rowBlock; //,startCol,colBlock;
+    ulong gridSize = cfg->gridRows * cfg->gridCols;
+    ulong _rowBlock = mat->M / cfg->gridRows, _rowBlockRem = mat->M % cfg->gridRows; 
+    //ulong _colBlock = mat->N / cfg->gridCols, _colBlockRem = mat->N % cfg->gridCols;
+    ulong startRow,rowBlock; //,startCol,colBlock;
     if (!(offsets = colsOffsetsPartitioningUnifRanges(mat,cfg->gridCols))) goto _free;
     if (!(tilesOutTmp = malloc (mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
         ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
@@ -91,7 +91,7 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
     AUDIT_INTERNAL_TIMES	Start=omp_get_wtime();
-    uint tileID,t_i,t_j;                            //for aux vars
+    ulong tileID,t_i,t_j;                            //for aux vars
     #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
     for (tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
@@ -102,19 +102,19 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         rowBlock = UNIF_REMINDER_DISTRI(t_i,_rowBlock,_rowBlockRem); 
         startRow = UNIF_REMINDER_DISTRI_STARTIDX(t_i,_rowBlock,_rowBlockRem);
         //startCol = UNIF_REMINDER_DISTRI_STARTIDX(t_j,_colBlock,_colBlockRem);
-        for (uint r=startRow,partOffID;  r<startRow+rowBlock;  r++){
+        for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             acc = 0;
             partOffID = IDX2D(r,t_j,cfg->gridCols);
-            for (uint j=offsets[partOffID],c; j<offsets[partOffID+1]; j++){
+            for (ulong j=offsets[partOffID],c; j<offsets[partOffID+1]; j++){
                 c = mat->JA[j];
                 acc += mat->AS[j] * vect[c]; 
             }
             tilesOutTmp[partOffID] = acc;
         }
     }
-    //#pragma omp parallel for reduction(+:outVect[0:mat->M])
-    for (uint r=0;  r<mat->M;   r++){
-        for (uint p=0;   p<cfg->gridCols;   p++){
+    //#pragma omp parallel for reduction(+:outVect[:mat->M])    //TODO RARE SEGFAULT
+    for (ulong r=0;  r<mat->M;   r++){
+        for (ulong p=0;   p<cfg->gridCols;   p++){
             outVect[r] += tilesOutTmp[ IDX2D(r,p,cfg->gridCols) ];
         }
     }
@@ -143,10 +143,10 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     double acc, *tilesOutTmp=NULL;
     spmat *colParts = NULL, *colPart;
     //2D INDEXING AUX
-    uint gridSize = cfg->gridRows * cfg->gridCols;
-    uint _rowBlock = mat->M / cfg->gridRows, _rowBlockRem = mat->M % cfg->gridRows; 
-    //uint _colBlock = mat->N / cfg->gridCols, _colBlockRem = mat->N % cfg->gridCols;
-    uint startRow,rowBlock; //,startCol,colBlock;
+    ulong gridSize = cfg->gridRows * cfg->gridCols;
+    ulong _rowBlock = mat->M / cfg->gridRows, _rowBlockRem = mat->M % cfg->gridRows; 
+    //ulong _colBlock = mat->N / cfg->gridCols, _colBlockRem = mat->N % cfg->gridCols;
+    ulong startRow,rowBlock; //,startCol,colBlock;
     if (!(colParts = colsPartitioningUnifRanges(mat,cfg->gridCols)))   return EXIT_FAILURE;
     if (!(tilesOutTmp = malloc (mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
         ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
@@ -155,7 +155,7 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     memset(outVect,0,mat->M * sizeof(*outVect));
     
     AUDIT_INTERNAL_TIMES	Start=omp_get_wtime();
-    uint tileID,t_i,t_j;                            //for aux vars
+    ulong tileID,t_i,t_j;                            //for aux vars
     #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
     for (tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
@@ -167,19 +167,19 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         rowBlock = UNIF_REMINDER_DISTRI(t_i,_rowBlock,_rowBlockRem); 
         startRow = UNIF_REMINDER_DISTRI_STARTIDX(t_i,_rowBlock,_rowBlockRem);
         //startCol = UNIF_REMINDER_DISTRI_STARTIDX(t_j,_colBlock,_colBlockRem);
-        for (uint r=startRow,partOffID;  r<startRow+rowBlock;  r++){
+        for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             acc = 0;
             partOffID = IDX2D(r,t_j,cfg->gridCols);
-            for (uint j=colPart->IRP[r],c; j<colPart->IRP[r+1]; j++){
+            for (ulong j=colPart->IRP[r],c; j<colPart->IRP[r+1]; j++){
                 c = colPart->JA[j];
                 acc += colPart->AS[j] * vect[c]; 
             }
             tilesOutTmp[partOffID] = acc;
         }
     }
-    #pragma omp parallel for reduction(+:outVect[0:mat->M])
-    for (uint r=0;  r<mat->M;   r++){
-        for (uint p=0;   p<cfg->gridCols;   p++){
+    //#pragma omp parallel for reduction(+:outVect[:mat->M])    //TODO RARE SEGFAULT
+    for (ulong r=0;  r<mat->M;   r++){
+        for (ulong p=0;   p<cfg->gridCols;   p++){
             outVect[r] += tilesOutTmp[ IDX2D(r,p,cfg->gridCols) ];
         }
     }
@@ -190,7 +190,7 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     
     out = EXIT_SUCCESS;
     _free:
-    for (uint i=0; i<cfg->gridCols; i++)    freeSpmatInternal(colParts+i); //TODO FIRST ALLOCATION
+    for (ulong i=0; i<cfg->gridCols; i++)    freeSpmatInternal(colParts+i); //TODO FIRST ALLOCATION
     if (tilesOutTmp)    free(tilesOutTmp);
     return out;
 }
@@ -202,7 +202,7 @@ int sgemvSerial(spmat* mat,double* vect, CONFIG* cfg, double* outVect){
     double acc,end,start;
     start = omp_get_wtime();
 
-    uint i,j,k;
+    ulong i,j,k;
     omp_set_num_threads(cfg->threadNum);
     for (i=0;i<mat->M;i++){
         acc = 0;
@@ -214,7 +214,7 @@ int sgemvSerial(spmat* mat,double* vect, CONFIG* cfg, double* outVect){
     }
  
     end = omp_get_wtime();
-    VERBOSE printf("sgemvSerial with %u x %u - %u NNZ  CSR sp.Mat, elapsed %lf\n",
+    VERBOSE printf("sgemvSerial with %lu x %lu - %lu NNZ  CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,end-start);
     out = EXIT_SUCCESS;
     return out;

@@ -13,8 +13,8 @@
 #include "sparseMatrix.h"
 
 ///inline export here 
-spmat* allocSpMatrix(uint rows, uint cols);
-int allocSpMatrixInternal(uint rows, uint cols, spmat* mat);
+spmat* allocSpMatrix(ulong rows, ulong cols);
+int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
 void freeSpmatInternal(spmat* mat);
 void freeSpmat(spmat* mat);
 
@@ -31,17 +31,19 @@ SPGEMV spgemvRowsBasic;
 
 #define TESTTESTS   "TESTTESTS"
 #define RNDVECT     "RNDVECT"
-#define HELP "usage: MatrixMarket_sparse_matrix_COO, vectorFile || "RNDVECT", ["TESTTESTS"]\n"
+#define HELP "usage: MatrixMarket_sparse_matrix_COO[.COMPRESS_EXT], vectorFile || "RNDVECT", ["TESTTESTS"]\n"
 int main(int argc, char** argv){
     int out=EXIT_FAILURE;
     if (init_urndfd())  return out;
     if (argc < 3 )  {ERRPRINT(HELP); return out;}
     
     double *vector = NULL, *outVector = NULL, *oracleOut=NULL;
-    uint vectSize;
+    ulong vectSize;
     spmat* mat = NULL; 
     ////parse sparse matrix and dense vector
-    if (!(mat = MMtoCSR(argv[1]))){
+    char* trgtMatrix = TMP_EXTRACTED_MARTIX;
+    if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatrix = argv[1];
+    if (!(mat = MMtoCSR(trgtMatrix))){
         ERRPRINT("err during conversion MM -> CSR\n");
         return out;
     }
@@ -68,8 +70,7 @@ int main(int argc, char** argv){
             }
         }
     }
-    //alloc space for 2 output vectors
-    if (!(outVector = malloc( 2 * mat->M * sizeof(*outVector)))){
+    if (!(outVector = malloc( mat->M * sizeof(*outVector) ))){
         ERRPRINT("outVector malloc errd\n");
         goto _free;
     }
@@ -110,7 +111,7 @@ int main(int argc, char** argv){
     uint f;
     SPGEMV_INTERF spgemvFunc;
     for (f=0,spgemvFunc=SpgemvFuncs[f]; spgemvFunc; spgemvFunc=SpgemvFuncs[++f]){
-        hprintsf("@computing SpGEMV with sparse matrix: %ux%u-%uNNZ  with func:\%u at:%p\t",
+        hprintsf("@computing SpGEMV with sparse matrix: %lux%lu-%luNNZ  with func:\%u at:%p\t",
           mat->M,mat->N,mat->NZ,f,spgemvFunc);
         for (uint i=0;  i< AVG_TIMES_ITERATION; i++){
             start = omp_get_wtime();

@@ -22,29 +22,39 @@ int getConfig(CONFIG* conf);
 
 //append only list implemented with a reallocated array
 typedef struct{
-    uint* a;
-    uint  size;
-    uint  lastIdx;
+    ulong* a;
+    ulong  size;
+    ulong  lastIdx;
 } APPENDARRAY;
 //append @val to @list, reallocating if reached end
-//TODO inline int appendArr(uint val,APPENDARRAY* list);
+//TODO inline int appendArr(ulong val,APPENDARRAY* list);
 
-void sortuint(uint* arr, uint len); //sort uint array @arr of @len elements
+void sortuint(uint* arr, uint len);     //sort uint array @arr of @len elements
+void sortulong(ulong* arr, ulong len);   //sort ulong array @arr of @len elements
 
 
 //return 0 if vectors a and b has elements that differ at most of DOUBLE_DIFF_THREASH 
-int doubleVectorsDiff(double* a, double* b, uint n);
+int doubleVectorsDiff(double* a, double* b, ulong n);
 //fill a random vector in @v long @size doubles
-int fillRndVector(uint size, double* v);
+int fillRndVector(ulong size, double* v);
 //read vector as a sequence of space separated double from file at @fpath 
 #define VECTOR_STEP_MALLOC 100
 
+/* 
+ * decompress file at @path into @tmpFsDecompressPath, 
+ * decompression command obtanined first looking at the extension
+ * then matching it with a list of avaible decompression cmd
+ * that can be make as shell cmd adding @path > @tmpFsDecompressPath
+ * e.g. decompress xz -d -c @path > @tmpFsDecompressPath
+ * Returns: -1 if decompression wasn't possible otherwise decompress command exti status
+ */
+int extractInTmpFS(char* path, char* tmpFsDecompressPath);
 //compute E[@values] in @out[0] and VAR[@values] in @out[1] of @numVals values
 void statsAvgVar(double* values,uint numVals, double* out);
 /*convert @sparseMat sparse matrix in dense matrix returned*/
 double* CSRToDense(spmat* sparseMat);
-void printMatrix(double* mat,uint m,uint n,char justNZMarkers);
+void printMatrix(double* mat,ulong m,ulong n,char justNZMarkers);
 void printSparseMatrix(spmat* sparseMat,char justNZMarkers);
-void printVector(double* v,uint size);
+void printVector(double* v,ulong size);
 
 #endif

@@ -12,5 +12,6 @@ test_SpGEMV_OMP.o:	$(srcs)
 	$(MAKE) -C test $@
 	ln -fs test/$@ .
 clean:
-	$(MAKE) -C src $@
+	$(MAKE) -C src  $@
+	$(MAKE) -C test $@
 	rm -i *.o 

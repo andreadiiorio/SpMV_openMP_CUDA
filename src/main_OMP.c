@@ -40,7 +40,7 @@ int main(int argc, char** argv){
     }
     
     double *vector = NULL, *outVector = NULL, start,end;
-    uint vectSize;
+    ulong vectSize;
     spmat* mat = NULL; 
     //extra configuration
     int maxThreads = omp_get_max_threads();
@@ -49,7 +49,9 @@ int main(int argc, char** argv){
         VERBOSE printf("configuration changed from env");
     }
     ////parse sparse matrix and dense vector
-    if (!(mat = MMtoCSR(argv[1]))){
+    char* trgtMatrix = TMP_EXTRACTED_MARTIX;
+    if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatrix = argv[1];
+    if (!(mat = MMtoCSR(trgtMatrix))){
         ERRPRINT("err during conversion MM -> CSR\n");
         return out;
     }
