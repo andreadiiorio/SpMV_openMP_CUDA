@@ -27,46 +27,7 @@
 #define hprintf(str)                printf( CHIGHLIGHT str CEND) 
 #define ERRPRINTS(str,...)          fprintf( stderr, CHIGHLIGHTERR str CEND,__VA_ARGS__ )
 #define ERRPRINT(str)               fprintf( stderr, CHIGHLIGHTERR str CEND )
-///CONSTANTS
-#define DOUBLE_DIFF_THREASH         7e-5
-#define DRNG_DEVFILE                "/dev/urandom"
-#define MAXRND                      1996
 
-///Smart controls
-#define FALSE                       ( 0 )
-#define TRUE                        ( ! FALSE )
-//debug checks and tmp stuff
-#ifndef DEBUG 
-    #define DEBUG                       if( TRUE )
-#endif
-//long prints
-#ifndef DEBUGPRINT
-    #define DEBUGPRINT                  if( FALSE )
-#endif
-//heavy impact debug checks
-#ifndef DEBUGCHECKS
-    #define DEBUGCHECKS                 if( FALSE )
-#endif
-//extra print in the normal output
-#ifndef AUDIT_INTERNAL_TIMES
-    #define AUDIT_INTERNAL_TIMES        if( TRUE )
-#endif
-#ifndef VERBOSE
-    #define VERBOSE                     if( TRUE )
-#endif
-//extra checks over the imput and correct partials
-#ifndef CONSISTENCY_CHECKS
-    #define CONSISTENCY_CHECKS          if( TRUE )
-#endif
-#ifndef AVG_TIMES_ITERATION
-    #define AVG_TIMES_ITERATION         5
-#endif
-
-///CONSTS
-#ifndef TMPDIR
-    #define TMPDIR                      "/tmp/"
-#endif
-#define TMP_EXTRACTED_MARTIX    TMPDIR "extractedMatrix"
 
 ///aux types
 typedef unsigned char  uchar;
@@ -92,17 +53,4 @@ typedef _DECIMAL_TRGT_PREC	decimal;
 #endif
 
 
-//////TODO CONFIGURATION DEFINITIONS
-extern double Start,End,Elapsed,ElapsedInternal;
-typedef struct{
-    ushort gridRows;
-    ushort gridCols;
-    //TODO FULL CONFIG DOCCED HERE
-    uint threadNum;  //thread num to use in an OMP parallel region ...
-    void* spgemmFunc;   //aux spgemm function to use. 
-    //TODO MAKE THIS A CONTAINER OF SUB STRUCT PASSABLE TO SPGEMM FUNCS TO AVOID CAST
-} CONFIG;  
-///config from ENV
-#define GRID_ROWS   "GRID_ROWS"
-#define GRID_COLS   "GRID_COLS"
 #endif 	//MACROS

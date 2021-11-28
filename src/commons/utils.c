@@ -248,7 +248,7 @@ int extractInTmpFS(char* path, char* tmpFsDecompressPath){
           decompressCmdBase,path,tmpFsDecompressPath) < 0){
         ERRPRINT("extractInTmpFS, snprintf errd\n");
     }
-    printf("decompressing %s --> %s\ncmd:\t%s \n ",path,tmpFsDecompressPath,decompressCmd);
+    VERBOSE printf("decompressing %s --> %s\ncmd:\t%s \n ",path,tmpFsDecompressPath,decompressCmd);
     return system(decompressCmd);
 }
 

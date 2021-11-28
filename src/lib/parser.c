@@ -103,10 +103,10 @@ static int _MMtoCSR(spmat* mat, FILE *fp, MM_typecode mcode){
         }
         CONSISTENCY_CHECKS{ 
             //NNZERO VAL CHECKS 
-            if (!val){
-                ERRPRINT("invalid sparse matrix with 0 entry explicitly stored\n");
-                goto _free;
-            }
+            //if (!val){    //TODO SOMETIMES THERE IS IN SOME MATRIXES...
+            //    ERRPRINT("invalid sparse matrix with 0 entry explicitly stored\n");
+            //    goto _free;
+            //}
             //TODO USELESS ? ? ?
             if ((mm_is_pattern(mcode) && scanndRet != 2) || 
                 (!mm_is_pattern(mcode) && scanndRet != 3)){

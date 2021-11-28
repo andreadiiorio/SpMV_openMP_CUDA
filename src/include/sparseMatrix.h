@@ -4,6 +4,7 @@
 #define SPARSEMATRIX 
 
 #include "macros.h"
+#include "config.h"
 
 typedef struct{
     ulong NZ,M,N;
@@ -174,7 +175,4 @@ inline int reallocSpMatrix(spmat* mat,ulong newSize){
     return EXIT_SUCCESS;
 }
 */
-////MISC
-//print useful information about 3SPGEMM about to compute
-void print3SPGEMMCore(spmat* R,spmat* AC,spmat* P,CONFIG* conf);
 #endif

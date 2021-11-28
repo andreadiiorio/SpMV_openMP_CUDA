@@ -7,20 +7,25 @@
 #include "sparseMatrix.h"
 #include "macros.h"
 #include "utils.h"
+#include "config.h"
+#include "ompChunksDivide.h"
 
 //global vars	->	audit
 double Start,End,Elapsed,ElapsedInternal;
 
 int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
-    
+
     double acc;
+    ulong c;
+    ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc) (mat->M,mat,cfg);
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
     #pragma omp parallel for schedule(runtime) private(acc)
     for (ulong r=0;  r<mat->M;   r++){
         acc = 0;
-        for (ulong j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
+        #pragma omp simd reduction(+:acc) if(SIMD_ROWS_REDUCTION)
+        for (ulong j=mat->IRP[r]; j<mat->IRP[r+1]; j++){
            c = mat->JA[j];
            acc += mat->AS[j] * vect[c];
         }
@@ -31,7 +36,7 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    VERBOSE printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
+    DEBUG printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
@@ -41,17 +46,20 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc;
-    AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
     ulong rowBlock = mat->M / cfg->gridRows, rowBlockRem = mat->M % cfg->gridRows; 
-    ulong block,startRow;
+    ulong block,startRow,c;
+    ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(cfg->gridRows,mat,cfg);
+    AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
+
     #pragma omp parallel for schedule(runtime) private(acc, block, startRow)
     for (ulong b=0;   b<cfg->gridRows;   b++){
         block      = UNIF_REMINDER_DISTRI(b,rowBlock,rowBlockRem);
         startRow   = UNIF_REMINDER_DISTRI_STARTIDX(b,rowBlock,rowBlockRem);
         for (ulong r=startRow;  r<startRow+block;  r++){
             acc = 0;
-            for (ulong j=mat->IRP[r],c; j<mat->IRP[r+1]; j++){
+            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            for (ulong j=mat->IRP[r]; j<mat->IRP[r+1]; j++){
                c = mat->JA[j];
                acc += mat->AS[j] * vect[c];
             }
@@ -62,7 +70,7 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    VERBOSE printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
+    DEBUG printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
@@ -90,8 +98,10 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         goto _free;
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
-    AUDIT_INTERNAL_TIMES	Start=omp_get_wtime();
-    ulong tileID,t_i,t_j;                            //for aux vars
+    ulong tileID,t_i,t_j,c;                            //for aux vars
+    
+    ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(gridSize,mat,cfg);
+    AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
     #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
     for (tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
@@ -103,9 +113,10 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         startRow = UNIF_REMINDER_DISTRI_STARTIDX(t_i,_rowBlock,_rowBlockRem);
         //startCol = UNIF_REMINDER_DISTRI_STARTIDX(t_j,_colBlock,_colBlockRem);
         for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
-            acc = 0;
             partOffID = IDX2D(r,t_j,cfg->gridCols);
-            for (ulong j=offsets[partOffID],c; j<offsets[partOffID+1]; j++){
+            acc = 0;
+            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            for (ulong j=offsets[partOffID]; j<offsets[partOffID+1]; j++){
                 c = mat->JA[j];
                 acc += mat->AS[j] * vect[c]; 
             }
@@ -154,8 +165,9 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
     
-    AUDIT_INTERNAL_TIMES	Start=omp_get_wtime();
-    ulong tileID,t_i,t_j;                            //for aux vars
+    ulong tileID,t_i,t_j,c;                            //for aux vars
+    ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(gridSize,mat,cfg);
+    AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
     #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
     for (tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
@@ -170,7 +182,8 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             acc = 0;
             partOffID = IDX2D(r,t_j,cfg->gridCols);
-            for (ulong j=colPart->IRP[r],c; j<colPart->IRP[r+1]; j++){
+            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            for (ulong j=colPart->IRP[r]; j<colPart->IRP[r+1]; j++){
                 c = colPart->JA[j];
                 acc += colPart->AS[j] * vect[c]; 
             }
@@ -214,7 +227,7 @@ int sgemvSerial(spmat* mat,double* vect, CONFIG* cfg, double* outVect){
     }
  
     end = omp_get_wtime();
-    VERBOSE printf("sgemvSerial with %lu x %lu - %lu NNZ  CSR sp.Mat, elapsed %lf\n",
+    DEBUG printf("sgemvSerial with %lu x %lu - %lu NNZ  CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,end-start);
     out = EXIT_SUCCESS;
     return out;

@@ -4,7 +4,7 @@ CFLAGS=-Wall -Wextra -O2
 #libs
 CFLAGS+=-lm -fopenmp
 #TODO extra to reduce useless warnings
-CFLAGS+=-Wno-pointer-sign -Wno-unused-parameter -Wno-unused-but-set-variable
+CFLAGS+=-Wno-pointer-sign -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-switch
 CFLAGS+=-Wno-unused-label #-Wno-unused-function
 ##TODO OMP CONFIG
 #OMP_CANCELLATION=true
@@ -22,7 +22,9 @@ UNDEF := $(shell echo $(MACROSDBG) | tr " " "\n" | grep -oe '-D.*=' | tr -d "=" 
 CFLAGS+=$(RUNTIME)
 #bind to source original project
 srcDir=$(realpath ../src)
-
+srcInclDir=$(realpath ../src/include)
+coreSrcs:=$(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
+testSrcs:=SpGEMV_OMP_test.c  $(coreSrcs)
 
 ##CBLAS BUILD NEEDED
 CBLAS_INCLUDE=CBLAS_LAPACK/include 
@@ -50,18 +52,18 @@ BLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/librefblas.a
 objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
 #TESTS FOR ALL SPGEMV FUNCS
-test_SpGEMV_OMP_Stats.o: SpGEMV_OMP_test.c $(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcDir)/include/*.h 
+test_SpGEMV_OMP_Stats.o:	$(testSrcs) 
 	$(CC)   $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) -o $@
 
-test_SpGEMV_OMP.o: SpGEMV_OMP_test.c $(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcDir)/include/*.h 
+test_SpGEMV_OMP.o: 	$(testSrcs)
 	$(CC)   $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" -o $@
 
-test_SpGEMV_OMP_DBG.o: SpGEMV_OMP_test.c $(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcDir)/include/*.h 
+test_SpGEMV_OMP_DBG.o: 	$(testSrcs)
 	$(CC)   $(CFLAGS) -O0 -I$(srcDir)/include/  $(filter-out %.h,$^) -ggdb $(CONSTS) $(MACROS) \
 	 $(UNDEF)  $(MACROSDBG) -DAVG_TIMES_ITERATION=1  -o $@
 
-test_CBLAS_SpGEMV_OMP.elf: SpGEMV_OMP_test.c $(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcDir)/include/*.h 
+test_CBLAS_SpGEMV_OMP.elf: 	$(testSrcs)
 	mkdir -p /tmp/oldBuilds
 	mv *.o /tmp/oldBuilds
 	#create objectfile not linked
@@ -72,14 +74,14 @@ test_CBLAS_SpGEMV_OMP.elf: SpGEMV_OMP_test.c $(srcDir)/SpGEMV_OMP.c $(srcDir)/co
 	rm -f *.o   #remove newly generated obj file for FF link
 	mv /tmp/oldBuilds/* . 
 
-sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(srcDir)/commons/*.c $(srcDir)/lib/*.c $(srcDir)/include/*.h 
+sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
 	$(CC) $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) -o $@ $(CONSTS) $(MACROS) \
 	    -D MAIN_SPMAT_IMG 
-sparseMatrixToImageTest.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(srcDir)/commons/*.c $(srcDir)/lib/*.c $(srcDir)/include/*.h
+sparseMatrixToImageTest.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
 	$(CC) $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) -o $@ $(CONSTS) $(MACROS) \
 	    -D MAIN_SPMAT_IMG 	-DTEST  -O0 -ggdb
-ompGetICV.o:	ompGetICV.c
-	$(CC) $(CFLAGS) $^ -o $@
+ompGetICV.o:	$(srcDir)/commons/ompGetICV.c $(srcInclDir)/ompGetICV.h
+	$(CC) $(CFLAGS) $^ -o $@ -D OMP_GET_ICV_MAIN 
 
 testAll:
 	$(shell bash ../scripts/testAllMatrixGroups.sh | tee - > log/testAll$GRID_ROWSXGRID_COLS )

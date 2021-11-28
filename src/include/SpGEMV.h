@@ -1,6 +1,7 @@
 #ifndef _SPGEMV
 #define _SPGEMV
 
+#include <assert.h>
 #include "macros.h"
 #include "sparseMatrix.h"
 
@@ -14,9 +15,10 @@ typedef enum {
     TILES        
 } COMPUTE_MODE;  
 
+#include "config.h"
+//Sparse parallel Matrix-Vector computation @mat,@inVector,@config,@outVect
 typedef int (SPGEMV)         (spmat*,double*,CONFIG*,double*);
 typedef int (*SPGEMV_INTERF) (spmat*,double*,CONFIG*,double*);
-
 /*
  * basic spgemv with row partitioning, 1 row per thread in consecutive order 
  */

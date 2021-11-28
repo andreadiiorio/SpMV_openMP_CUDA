@@ -5,7 +5,7 @@ CFLAGS+=-lm -fopenmp
 
 #TODO extra to reduce useless warnings
 CFLAGS+=-Wno-pointer-sign -Wno-unused-parameter -Wno-unused-but-set-variable
-CFLAGS+=-Wno-unused-label #-Wno-unused-function
+CFLAGS+=-Wno-unused-label -Wno-switch #-Wno-unused-function
 ##TODO OMP CONFIG
 #OMP_CANCELLATION=true
 #export OMP_CANCELLATION

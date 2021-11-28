@@ -3,31 +3,56 @@
 #include <string.h>
 #include <omp.h>
 
-#ifdef CBLAS_TESTS
-    #include <cblas.h>
-#endif 
+#include "sparseMatrix.h"
 #include "SpGEMV.h"
 #include "parser.h"
 #include "utils.h"
-#include <macros.h>
-#include "sparseMatrix.h"
+#include "macros.h"
+#include "ompChunksDivide.h"
+#include "ompGetICV.h"  //ICV - RUNTIME information audit auxs
 
 ///inline export here 
+//SPMV_CHUNKS_DISTR spmvChunksFair; 
 spmat* allocSpMatrix(ulong rows, ulong cols);
 int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
 void freeSpmatInternal(spmat* mat);
 void freeSpmat(spmat* mat);
+CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
+CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFairFolded;
+#ifdef CBLAS_TESTS
+#include <cblas.h>
+double* SGEMVCBLAS(spmat* mat, double* inVect){
+    CBLAS_LAYOUT layout=CblasRowMajor;
+    CBLAS_TRANSPOSE notrans=CblasNoTrans;
+    CBLAS_INT m=mat->M, n=mat->N;
+    double* denseMat = CSRToDense(mat);
+    if (!denseMat){
+        ERRPRINT("GEMVCheckCBLAS: aux dense matrix alloc failed\n");
+        return NULL;
+    }
+    double* oracleOut = malloc(m * sizeof(*oracleOut));
+    if (!oracleOut){
+        ERRPRINT("GEMVCheckCBLAS: out for serial oracle malloc failed\n");
+        goto _err;
+    }
+    VERBOSE printf("computimg Sparse GEMV using densification over LAPACK.CBLAS\n");
+    cblas_dgemv(layout,notrans,m,n,1.0,denseMat,n,inVect,1,0.0,oracleOut,1);
+    
+    _free:
+    free(denseMat);
+    return oracleOut;
 
-
-double* SGEMVCBLAS(spmat* mat, double* inVect);
+    _err:
+    if (denseMat)   free(denseMat);
+    if (oracleOut)  free(oracleOut);
+    return NULL;
+}
+#endif 
 
 CONFIG Conf = {
     .gridRows = 8,
     .gridCols = 8,
 };
-
-//compute function interface and its pointer definitions
-SPGEMV spgemvRowsBasic;
 
 #define TESTTESTS   "TESTTESTS"
 #define RNDVECT     "RNDVECT"
@@ -104,15 +129,32 @@ int main(int argc, char** argv){
     }
     sgemvSerial(mat,vector,&Conf,oracleOut);
 #endif
+    
+    printf("SpGEMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
+      "sparse matrix: %lux%lu-%luNNZ - grid: %ux%u\n",
+      AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,Conf.gridRows,Conf.gridCols);
     //// PARALLEL COMPUTATIONs TO CHECK
+    //extra configuration
+    int maxThreads = omp_get_max_threads();
+    Conf.threadNum = (uint) maxThreads;
+    /*
+     * get exported schedule configuration, 
+     * if chunkSize == 1 set a chunk division function before omp for
+     */
+    int schedKind_monotonic_chunk[3];
+    ompGetRuntimeSchedule(schedKind_monotonic_chunk);
+    Conf.chunkDistrbFunc = chunksNOOP; 
+    if (schedKind_monotonic_chunk[2] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
+    if (!getConfig(&Conf)){
+        VERBOSE printf("configuration changed from env");
+    }
     //elapsed stats aux vars
     double times[AVG_TIMES_ITERATION],  timesInteral[AVG_TIMES_ITERATION];
     double elapsedStats[2],  elapsedInternalStats[2], start,end;
     uint f;
     SPGEMV_INTERF spgemvFunc;
     for (f=0,spgemvFunc=SpgemvFuncs[f]; spgemvFunc; spgemvFunc=SpgemvFuncs[++f]){
-        hprintsf("@computing SpGEMV with sparse matrix: %lux%lu-%luNNZ  with func:\%u at:%p\t",
-          mat->M,mat->N,mat->NZ,f,spgemvFunc);
+        hprintsf("@computing SpGEMV   with func:\%u at:%p\t",f,spgemvFunc);
         for (uint i=0;  i< AVG_TIMES_ITERATION; i++){
             start = omp_get_wtime();
             if (spgemvFunc(mat,vector,&Conf,outVector)){
@@ -138,32 +180,3 @@ int main(int argc, char** argv){
     if (oracleOut)    free(oracleOut);
     return out;
 }
-
-#ifdef CBLAS_TESTS
-double* SGEMVCBLAS(spmat* mat, double* inVect){
-    CBLAS_LAYOUT layout=CblasRowMajor;
-    CBLAS_TRANSPOSE notrans=CblasNoTrans;
-    CBLAS_INT m=mat->M, n=mat->N;
-    double* denseMat = CSRToDense(mat);
-    if (!denseMat){
-        ERRPRINT("GEMVCheckCBLAS: aux dense matrix alloc failed\n");
-        return NULL;
-    }
-    double* oracleOut = malloc(m * sizeof(*oracleOut));
-    if (!oracleOut){
-        ERRPRINT("GEMVCheckCBLAS: out for serial oracle malloc failed\n");
-        goto _err;
-    }
-    VERBOSE printf("computimg Sparse GEMV using densification over LAPACK.CBLAS\n");
-    cblas_dgemv(layout,notrans,m,n,1.0,denseMat,n,inVect,1,0.0,oracleOut,1);
-    
-    _free:
-    free(denseMat);
-    return oracleOut;
-
-    _err:
-    if (denseMat)   free(denseMat);
-    if (oracleOut)  free(oracleOut);
-    return NULL;
-}
-#endif

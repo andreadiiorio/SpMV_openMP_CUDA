@@ -17,6 +17,10 @@ int init_urndfd(); // wrap init urndFd
 //wrap read cycle over @fd
 int read_wrap(int fd,char* dst,size_t count);
 
+#include "config.h"
+///config from ENV
+#define GRID_ROWS   "GRID_ROWS"
+#define GRID_COLS   "GRID_COLS"
 //parse configuration from env
 int getConfig(CONFIG* conf);
 

@@ -4,18 +4,21 @@
 #include <omp.h>
 
 #include "SpGEMV.h"
+#include "ompChunksDivide.h"
 #include "parser.h"
 #include "utils.h"
 #include "macros.h"
 #include "sparseMatrix.h"
 
+//inline funcs
+CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
+CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFairFolded;
 
 CONFIG Conf = {
     .gridRows = 8,
     .gridCols = 8,
 };
 
-SPGEMV spgemvRowsBasic;
 #define RNDVECT "RNDVECT"
 #define HELP "usage: MatrixMarket_sparse_matrix_COO, vectorFile || "RNDVECT \
         ", [COMPUTE/PARTITION_MODE: "_ROWS","_SORTED_ROWS","_TILES" ("_ROWS")]\n"
@@ -45,6 +48,14 @@ int main(int argc, char** argv){
     //extra configuration
     int maxThreads = omp_get_max_threads();
     Conf.threadNum = (uint) maxThreads;
+    /*
+     * get exported schedule configuration, 
+     * if chunkSize == 1 set a chunk division function before omp for
+     */
+    int schedKind_monotonic_chunk[3];
+    ompGetRuntimeSchedule(schedKind_monotonic_chunk);
+    Conf.chunkDistrbFunc = chunksNOOP; 
+    if (schedKind_monotonic_chunk[2] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
     if (!getConfig(&Conf)){
         VERBOSE printf("configuration changed from env");
     }
