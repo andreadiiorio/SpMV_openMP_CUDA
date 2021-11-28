@@ -7,4 +7,5 @@
  */
 void ompGetRuntimeSchedule(int* );
 void ompGetAllICV();    //only if not OMP_GET_ICV_MAIN 
+float ompVersionMacroMap(); //version number as float using API dates mappings
 #endif

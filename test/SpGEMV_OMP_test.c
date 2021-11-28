@@ -141,10 +141,10 @@ int main(int argc, char** argv){
      * get exported schedule configuration, 
      * if chunkSize == 1 set a chunk division function before omp for
      */
-    int schedKind_monotonic_chunk[3];
-    ompGetRuntimeSchedule(schedKind_monotonic_chunk);
+    int schedKind_chunk_monotonic[3];
+    ompGetRuntimeSchedule(schedKind_chunk_monotonic);
     Conf.chunkDistrbFunc = chunksNOOP; 
-    if (schedKind_monotonic_chunk[2] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
+    if (schedKind_chunk_monotonic[1] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
     if (!getConfig(&Conf)){
         VERBOSE printf("configuration changed from env");
     }

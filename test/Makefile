@@ -59,6 +59,8 @@ test_SpGEMV_OMP.o: 	$(testSrcs)
 	$(CC)   $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" -o $@
 
+#OMP_DISPLAY_ENV=VERBOSE
+#export OMP_DISPLAY_ENV
 test_SpGEMV_OMP_DBG.o: 	$(testSrcs)
 	$(CC)   $(CFLAGS) -O0 -I$(srcDir)/include/  $(filter-out %.h,$^) -ggdb $(CONSTS) $(MACROS) \
 	 $(UNDEF)  $(MACROSDBG) -DAVG_TIMES_ITERATION=1  -o $@
@@ -74,18 +76,19 @@ test_CBLAS_SpGEMV_OMP.elf: 	$(testSrcs)
 	rm -f *.o   #remove newly generated obj file for FF link
 	mv /tmp/oldBuilds/* . 
 
+ompGetICV.o:	$(srcDir)/commons/ompGetICV.c $(srcInclDir)/ompGetICV.h
+	$(CC) $(CFLAGS) $^ -o $@ -ggdb -D OMP_GET_ICV_MAIN 
+
+testAll:
+	$(shell bash ../scripts/testAllMatrixGroups.sh | tee - > log/testAll$GRID_ROWSXGRID_COLS )
+	#$(shell cat ../../data/matrixGroups.list | xargs -L 1 sh -c 'echo $0 ${@};./test_CBLAS_SpGEMV_OMP.elf $0 ${@}' ) #TODO FIX
+
 sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
 	$(CC) $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) -o $@ $(CONSTS) $(MACROS) \
 	    -D MAIN_SPMAT_IMG 
 sparseMatrixToImageTest.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
 	$(CC) $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) -o $@ $(CONSTS) $(MACROS) \
 	    -D MAIN_SPMAT_IMG 	-DTEST  -O0 -ggdb
-ompGetICV.o:	$(srcDir)/commons/ompGetICV.c $(srcInclDir)/ompGetICV.h
-	$(CC) $(CFLAGS) $^ -o $@ -D OMP_GET_ICV_MAIN 
-
-testAll:
-	$(shell bash ../scripts/testAllMatrixGroups.sh | tee - > log/testAll$GRID_ROWSXGRID_COLS )
-	#$(shell cat ../../data/matrixGroups.list | xargs -L 1 sh -c 'echo $0 ${@};./test_CBLAS_SpGEMV_OMP.elf $0 ${@}' ) #TODO FIX
 clean:
 	rm -i *.elf
 	rm -f *.o

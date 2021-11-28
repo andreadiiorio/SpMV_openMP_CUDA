@@ -24,7 +24,9 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     #pragma omp parallel for schedule(runtime) private(acc)
     for (ulong r=0;  r<mat->M;   r++){
         acc = 0;
-        #pragma omp simd reduction(+:acc) if(SIMD_ROWS_REDUCTION)
+        #if SIMD_ROWS_REDUCTION == TRUE
+        #pragma omp simd reduction(+:acc)
+        #endif
         for (ulong j=mat->IRP[r]; j<mat->IRP[r+1]; j++){
            c = mat->JA[j];
            acc += mat->AS[j] * vect[c];
@@ -58,7 +60,9 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         startRow   = UNIF_REMINDER_DISTRI_STARTIDX(b,rowBlock,rowBlockRem);
         for (ulong r=startRow;  r<startRow+block;  r++){
             acc = 0;
-            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            #if SIMD_ROWS_REDUCTION == TRUE
+            #pragma omp simd reduction(+:acc)
+            #endif
             for (ulong j=mat->IRP[r]; j<mat->IRP[r+1]; j++){
                c = mat->JA[j];
                acc += mat->AS[j] * vect[c];
@@ -115,7 +119,9 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             partOffID = IDX2D(r,t_j,cfg->gridCols);
             acc = 0;
-            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            #if SIMD_ROWS_REDUCTION == TRUE
+            #pragma omp simd reduction(+:acc)
+            #endif
             for (ulong j=offsets[partOffID]; j<offsets[partOffID+1]; j++){
                 c = mat->JA[j];
                 acc += mat->AS[j] * vect[c]; 
@@ -182,7 +188,9 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             acc = 0;
             partOffID = IDX2D(r,t_j,cfg->gridCols);
-            #pragma omp simd reduction(+:acc) if SIMD_ROWS_REDUCTION 
+            #if SIMD_ROWS_REDUCTION == TRUE
+            #pragma omp simd reduction(+:acc)
+            #endif
             for (ulong j=colPart->IRP[r]; j<colPart->IRP[r+1]; j++){
                 c = colPart->JA[j];
                 acc += colPart->AS[j] * vect[c]; 
