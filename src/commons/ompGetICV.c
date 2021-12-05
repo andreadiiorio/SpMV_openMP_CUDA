@@ -49,6 +49,8 @@ int main(){
 #else
 void ompGetAllICV(){
 #endif
+    printf("export OMP_DISPLAY_ENV=VERBOSE for full ICV details\n"); 
+    printf("omp MAX THREADS USABLE\t%d\n",omp_get_max_threads());
     ompGetRuntimeSchedule(NULL);
     printf("omp API version:\t %1.1f\n",ompVersionMacroMap()); 
 }

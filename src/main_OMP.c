@@ -67,8 +67,8 @@ int main(int argc, char** argv){
         return out;
     }
     ////get the vector
+    vectSize = mat->N;  //size for GEMV
     if (!(strncmp(argv[2],RNDVECT,strlen(RNDVECT)))){ //generate a random vector
-        vectSize = mat->N;  //size for GEMV
         if (!(vector = malloc(vectSize * sizeof(*vector)))){
             ERRPRINT("rnd vector malloc failed\n");
             goto _free;
@@ -78,8 +78,8 @@ int main(int argc, char** argv){
             goto _free;
         }
     } else{ //read vector from the given file
-        if (!(vector = readVector(argv[2],&vectSize))){
-            fprintf(stderr,"err during readVector at:%s\n",argv[2]);
+        if (!(vector = readDoubleVector(argv[2],&vectSize))){
+            fprintf(stderr,"err during readDoubleVector at:%s\n",argv[2]);
             goto _free;
         }
         CONSISTENCY_CHECKS{

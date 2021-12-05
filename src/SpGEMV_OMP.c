@@ -21,7 +21,7 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc) (mat->M,mat,cfg);
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
-    #pragma omp parallel for schedule(runtime) private(acc)
+    #pragma omp parallel for schedule(runtime) private(acc,c)
     for (ulong r=0;  r<mat->M;   r++){
         acc = 0;
         #if SIMD_ROWS_REDUCTION == TRUE
@@ -54,7 +54,7 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(cfg->gridRows,mat,cfg);
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
 
-    #pragma omp parallel for schedule(runtime) private(acc, block, startRow)
+    #pragma omp parallel for schedule(runtime) private(acc,block,startRow,c)
     for (ulong b=0;   b<cfg->gridRows;   b++){
         block      = UNIF_REMINDER_DISTRI(b,rowBlock,rowBlockRem);
         startRow   = UNIF_REMINDER_DISTRI_STARTIDX(b,rowBlock,rowBlockRem);
@@ -97,17 +97,17 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     //ulong _colBlock = mat->N / cfg->gridCols, _colBlockRem = mat->N % cfg->gridCols;
     ulong startRow,rowBlock; //,startCol,colBlock;
     if (!(offsets = colsOffsetsPartitioningUnifRanges(mat,cfg->gridCols))) goto _free;
-    if (!(tilesOutTmp = malloc (mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
+    if (!(tilesOutTmp = malloc(mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
         ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
         goto _free;
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
-    ulong tileID,t_i,t_j,c;                            //for aux vars
+    ulong t_i,t_j,c;                            //for aux vars
     
     ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(gridSize,mat,cfg);
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
-    #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
-    for (tileID = 0; tileID < gridSize; tileID++){
+    #pragma omp parallel for schedule(runtime) private(acc,rowBlock,startRow,c,t_i,t_j)
+    for (ulong tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
         //tile index in the 2D grid of AB computation TODO OMP HOW TO PARALLELIZE 2 FOR
         t_i = tileID/cfg->gridCols;  //i-th row block
@@ -116,12 +116,14 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         rowBlock = UNIF_REMINDER_DISTRI(t_i,_rowBlock,_rowBlockRem); 
         startRow = UNIF_REMINDER_DISTRI_STARTIDX(t_i,_rowBlock,_rowBlockRem);
         //startCol = UNIF_REMINDER_DISTRI_STARTIDX(t_j,_colBlock,_colBlockRem);
+
         for (ulong r=startRow,partOffID;  r<startRow+rowBlock;  r++){
             partOffID = IDX2D(r,t_j,cfg->gridCols);
             acc = 0;
             #if SIMD_ROWS_REDUCTION == TRUE
             #pragma omp simd reduction(+:acc)
             #endif
+            //2D CSR tile SpMV using cols partition of row r
             for (ulong j=offsets[partOffID]; j<offsets[partOffID+1]; j++){
                 c = mat->JA[j];
                 acc += mat->AS[j] * vect[c]; 
@@ -143,7 +145,7 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     out = EXIT_SUCCESS;
     _free:
     if(offsets)         free(offsets);
-    if (tilesOutTmp)    free(tilesOutTmp);
+    if(tilesOutTmp)     free(tilesOutTmp);
     return out;
 }
 
@@ -171,11 +173,11 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
     
-    ulong tileID,t_i,t_j,c;                            //for aux vars
+    ulong t_i,t_j,c;                            //for aux vars
     ((CHUNKS_DISTR_INTERF) cfg->chunkDistrbFunc)(gridSize,mat,cfg);
     AUDIT_INTERNAL_TIMES    Start = omp_get_wtime();
-    #pragma omp parallel for schedule(runtime) private(acc, rowBlock, startRow)
-    for (tileID = 0; tileID < gridSize; tileID++){
+    #pragma omp parallel for schedule(runtime) private(acc,rowBlock,startRow,c,t_i,t_j)
+    for (ulong tileID = 0; tileID < gridSize; tileID++){
         ///get iteration's indexing variables
         //tile index in the 2D grid of AB computation TODO OMP HOW TO PARALLELIZE 2 FOR
         t_i = tileID/cfg->gridCols;  //i-th row block
@@ -211,7 +213,8 @@ int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     
     out = EXIT_SUCCESS;
     _free:
-    for (ulong i=0; i<cfg->gridCols; i++)    freeSpmatInternal(colParts+i); //TODO FIRST ALLOCATION
+    for (ulong i=0; i<cfg->gridCols; i++)    freeSpmatInternal(colParts+i); 
+    free(colParts);
     if (tilesOutTmp)    free(tilesOutTmp);
     return out;
 }
@@ -224,7 +227,6 @@ int sgemvSerial(spmat* mat,double* vect, CONFIG* cfg, double* outVect){
     start = omp_get_wtime();
 
     ulong i,j,k;
-    omp_set_num_threads(cfg->threadNum);
     for (i=0;i<mat->M;i++){
         acc = 0;
         for (j=mat->IRP[i]; j<mat->IRP[i+1]; j++){

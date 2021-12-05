@@ -10,8 +10,24 @@ typedef struct{
     double val;
 } entry;     //MatrixMarket COO entry
 
+
+/* 
+ * parse MatrixMarket matrix entries in @fp, of type @mcode and @NZ entries
+ * into COOrdinate list of entries
+ *  -> expand simmetric matrixes into a normal matrix with both parts
+ *      so NZ will be inplace doubled
+ * return allocated and filled COO entries with the NNZ number into
+ */
+entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode);
+/*
+ * write COO entries in @entries inside sparse matrix @mat
+ * expected CSR arrays allocated
+ * [simmetrical parts explicitly rappresented --> not important here]
+ */
+int COOtoCSR(entry* entries, spmat* mat);
 /*
  * Parse MatrixMarket matrix stored in file at @matPath
+ * IMPLEMENTED WRAPPING: MMtoCOO -> COOtoCSR
  * Returns: allocated spmat sparse matrix with all field allocated
  * symetric matrix are expanded in a full matrix
  */
@@ -23,9 +39,6 @@ spmat* MMtoCSR(char* matPath);
  */
 int MMCheck(MM_typecode typecode);
 
-#define VECTOR_STEP_MALLOC  100
-#define RNDVECTORSIZE       VECTOR_STEP_MALLOC
-//read vector of arbitrary size from @fpath, true lenght in *size
-double* readVector(char* fpath,ulong* size);
+
 
 #endif

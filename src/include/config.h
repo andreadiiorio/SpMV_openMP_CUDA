@@ -36,6 +36,15 @@ typedef struct{
     #define CONSISTENCY_CHECKS          if( TRUE )
 #endif
 ///CONSTS
+//#define DOUBLE_VECT_DIFF_EARLY_EXIT 1
+//#define RNDVECTMIN          222222
+#define VECTOR_STEP_REALLOC 25
+#define RNDVECTORSIZE       100000
+#define RNDVECTORDUMP       TMPDIR  "rndVectorDump"
+#define RNDVECTORDUMPRAW    TMPDIR  "rndVectorDumpRaw"
+#define OUTVECTORDUMP       TMPDIR  "outVectorDump"
+#define OUTVECTORDUMPRAW    TMPDIR  "outVectorDumpRaw"
+//#define FLOAT_DIFF_ABS
 #ifndef AVG_TIMES_ITERATION
     #define AVG_TIMES_ITERATION         5
 #endif
@@ -48,10 +57,14 @@ typedef struct{
 #ifndef SIMD_ROWS_REDUCTION
     #define SIMD_ROWS_REDUCTION         TRUE
 #endif
+#if SIMD_ROWS_REDUCTION == TRUE
+    #pragma message("SIMD_ROWS_REDUCTION enabled")
+    //TODO SOME TRICK TO HAVE 1! PRINT
+#endif
 extern double Start,End,Elapsed,ElapsedInternal;
 #define DOUBLE_DIFF_THREASH         7e-5
 #define DRNG_DEVFILE                "/dev/urandom"
-#define MAXRND                      1996
+#define MAXRND                      1
 #ifndef TMPDIR
     #define TMPDIR                      "/tmp/"
 #endif

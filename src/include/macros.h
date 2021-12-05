@@ -6,28 +6,30 @@
 #define	ABS(a)				        ((a) > 0   ? (a) : -(a))
 #define	MIN(a,b)			        ((a) < (b) ? (a) : (b))
 #define MAX(a,b)			        ((a) > (b) ? (a) : (b))
-#define AVG(a,b)                    ( a/2 + b/2 + (a%2+b%2)/2 )
-#define swap(a,b)                   a=a^b;b=b^a;a=a^b
-#define MAT_IDX_ROWMAJ(r,c,cols)	( r*cols+c )
+#define AVG(a,b)                    ((a)/2 + (b)/2 + ((a)%2+(b)%2)/2)
+#define swap(a,b)                   (a)=(a)^(b);(b)=(b)^(a);(a)=(a)^(b)
 //ceil(x/y) with integers
 #define INT_DIV_CEIL(x,y)		    ( (x-1) / y + 1 )
 //2D ROW MAJOR indexing wrap compute
-#define IDX2D(i,j,nCols)            (j + i*nCols)
+#define IDX2D(i,j,nCols)            ((j) + (i)*(nCols))
 ///distribuite reminder @rem in group givin an extra +1 to the first @rem
 #define UNIF_REMINDER_DISTRI(i,div,rem) \
-    ( div + ( i<rem ? 1 : 0 ) )
+    ( (div) + ( (i) < (rem) ? 1 : 0 ) )
 #define UNIF_REMINDER_DISTRI_STARTIDX(i,div,rem) \
-    ( i * div + MIN(i,rem)*1 )
+    ( (i) * (div) + MIN( (i),(rem) ) )
 
 ////PRINTS
 #define CHIGHLIGHT                  "\33[1m\33[92m"
+#define CCC                         CHIGHLIGHT
 #define CHIGHLIGHTERR               "\33[31m\33[1m\33[44m"
+#define CCCERR                      CHIGHLIGHTERR
 #define CEND                        "\33[0m"
 #define hprintsf(str,...)           printf( CHIGHLIGHT str CEND,__VA_ARGS__ ) 
 #define hprintf(str)                printf( CHIGHLIGHT str CEND) 
 #define ERRPRINTS(str,...)          fprintf( stderr, CHIGHLIGHTERR str CEND,__VA_ARGS__ )
 #define ERRPRINT(str)               fprintf( stderr, CHIGHLIGHTERR str CEND )
 
+#include <assert.h> 
 
 ///aux types
 typedef unsigned char  uchar;
@@ -48,9 +50,6 @@ typedef _DECIMAL_TRGT_PREC	decimal;
 
 ///EXTRA INCLUDE    --- cuda 
 ///assertionn are disabled at compile time by defining the NDEBUG preprocessor macro before including assert.h	s
-#ifdef ASSERT
-	#include <assert.h>
-#endif
-
+//#ifdef ASSERT 	#include <assert.h> #endif
 
 #endif 	//MACROS

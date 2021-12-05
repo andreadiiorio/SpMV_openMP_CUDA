@@ -18,9 +18,23 @@
 
 int urndFd; //will point to urandom device file
 
+///IO
+//UNBUFFERED IO
+int write_wrap(int fd,void* src,size_t count){
+	ssize_t wr;
+	size_t written=0;
+	while (written < count){
+		wr=write(fd,src+written,count-written);
+		if (wr<0){
+			perror("write");
+			return wr;
+		}
+		written+=wr;
+	}
+	return 0;
+}
 
-//rnd gen from /dev/random
-int read_wrap(int fd,char* dst,size_t count){
+int read_wrap(int fd,void* dst,size_t count){
 	ssize_t rd;
 	size_t readed=0;
 	while (readed < count){
@@ -74,12 +88,98 @@ int init_urndfd(){ // wrap init urndFd
 }
 int createNewFile(char* const outFpath){
     int mode=S_IRWXU;
+    errno = 0;
     int outFd=open(outFpath, O_WRONLY | O_CREAT | O_TRUNC, mode);
-    //TODO ? RIMETTI O_EXCL if (errno==EEXIST)      outFd=open(outFpath, O_WRONLY | O_TRUNC, mode);
+    if (errno==EEXIST)      outFd=open(outFpath, O_WRONLY | O_TRUNC, mode);
     if (outFd<0)            perror("open outFd failed ");
     return outFd;
 }
+///STRUCTURED DATA IO
+int writeDoubleVector(char* fpath,double* v,ulong size){
+    int fd,out=EXIT_FAILURE;
+    if ( (fd = createNewFile(fpath) ) < 0 ) goto _end;
+    write_wrap(fd,v,size * sizeof(*v)); //raw write of vector
+    out = EXIT_SUCCESS;
+    DEBUG printf("written double vector into %s RAW of %lu elements\n",fpath,size);
 
+    _end:
+    if (close(fd) == EOF)  perror("close errd\n");
+    return out;
+}
+
+///STRUCTURED DATA IO -- BUFFERED: FSCANF - FPRINTF
+int writeDoubleVectorAsStr(char* fpath,double* v,ulong size){
+    int out=EXIT_FAILURE;
+    FILE* fp = fopen(fpath,"w");
+    if (!fp){
+        perror("fopen vector file write");
+        return EXIT_FAILURE;
+    }
+    for (ulong i=0; i<size; i++){
+        if (fprintf(fp,"%lf\n",v[i]) < 0){
+            ERRPRINT("fprintf to out vector file errd\n");
+            goto _end;
+        } 
+    }
+    out = EXIT_SUCCESS;
+    DEBUG printf("written vector into %s of %lu elements\n",fpath,size);
+
+    _end:
+    if (fclose(fp) == EOF)  perror("fclose errd\n");
+    return out;
+
+}
+
+double* readDoubleVector(char* fpath,ulong* size){
+    int fscanfOut;
+    double *out,*tmp;
+    ulong i=0,vectorSize=RNDVECTORSIZE;
+    if (*size)   vectorSize = *size;
+    FILE* fp = fopen(fpath,"r");
+    if (!fp){
+        perror("fopen vector file");
+        return NULL;
+    }
+    if (!(out = malloc(vectorSize * sizeof(*out)))){ 
+        ERRPRINT("vector read malloc fail for file\n");
+        return NULL;
+    }
+    while (1){
+        if (i >= vectorSize ){ //realloc the array
+            vectorSize *= VECTOR_STEP_REALLOC;
+            if (!(tmp=realloc(out,vectorSize*sizeof(*out)))){
+                ERRPRINTS("realloc errd to ~~ %lu MB\n",vectorSize >> 20);
+                goto _err;
+            }
+            out = tmp;
+            DEBUG   printf("reallocd to ~~ %lu MB\n",vectorSize >> 20);
+        }
+        fscanfOut = fscanf(fp,"%lf\n",out + i++ );
+        if ( fscanfOut == EOF && ferror(fp)){
+            perror("invalid fscanf");
+            goto _err;
+        }
+        if ( fscanfOut != 1 || fscanfOut == EOF )   break;  //end of vector
+    }
+    //REALLOC THE ARRAY TO THE FINAL SIZE
+    *size = --i;
+    if (!(tmp = realloc(out,*size*sizeof(*out)))){
+        ERRPRINT("realloc errd\n");
+        goto _err;
+    }
+    out = tmp;
+    DEBUG printf("readed vector from %s of %lu elements\n",fpath,*size);
+    goto _free;
+
+    _err:
+    free(out);
+    out = NULL;
+    _free:
+    if (fclose(fp) == EOF)  perror("fclose errd\n");
+    return out;
+}
+
+///VAR
 int getConfig(CONFIG* conf){
     int changes=EXIT_FAILURE;
     char *varVal,*ptr;
@@ -151,36 +251,46 @@ void statsAvgVar(double* values,uint numVals, double* out){
     out[1]  =   sumSquare/numVals - (out[0] * out[0]);  //VAR
 }
 
-/// MATRIX - VECTOR UTILS
+/// MATRIX - VECTOR COMPUTE UTILS
 int fillRndVector(ulong size, double* v){
     for( ulong x=0; x<size; ++x ){
         if(rndDouble_sinDecimal( v+x )) return EXIT_FAILURE;
+        #ifdef RNDVECTMIN
+        v[x] += RNDVECTMIN;
+        #endif
     }
     return EXIT_SUCCESS;
 }
 
-int doubleVectorsDiff(double* a, double* b, ulong n){
-    double diff,maxDiff=0;
-    ulong nnz = 0;
+int doubleVectorsDiff(double* a, double* b, ulong n,double* diffMax){
+    int out = EXIT_SUCCESS;
+    double diff,diffAbs,_diffMax=0;
+    if (diffMax)    *diffMax = 0;
+    else diffMax = &_diffMax;
     for (ulong i=0; i<n; i++){
-        diff = ABS( a[i] - b[i] );
-        if (MAX(a[i],b[i]))     nnz++; //count nnz
-        if( diff > DOUBLE_DIFF_THREASH ){
-            fprintf(stderr,"DIFF IN DOUBLE VECTORS: %lf > threash=%lf\tat nnz:%lu\n",
-                diff,DOUBLE_DIFF_THREASH,nnz);
-            return EXIT_FAILURE;
+        diff    = a[i] - b[i];
+        diffAbs = ABS( diff );
+        if( diffAbs > DOUBLE_DIFF_THREASH ){
+            out = EXIT_FAILURE;
+            ERRPRINTS("DIFF IN DOUBLE VECTORS: |%13lg| > threash=%lf\tat: %lu\n",
+              diff,DOUBLE_DIFF_THREASH,i);
+            #ifdef DOUBLE_VECT_DIFF_EARLY_EXIT
+            return out;
+            #endif
         }
-        else if (diff > maxDiff)    maxDiff = diff;
+        if ( ABS(*diffMax) < diffAbs )   *diffMax = diff;
     }
     DEBUG{
-        printf("checked diff OK between 2 double vector of %lu nnz with "
-          "max diff: %le < threash: %le\n",nnz,maxDiff,DOUBLE_DIFF_THREASH);
-        if (!maxDiff){ //self diff check uselss TODO REMOVE
+        printf("checked diff %s"CEND" between 2 double vector of %lu elements"
+               "\tmax diff: %le %s threash: %le\n", !out?CCC"OK":CCCERR"ERR!",
+                n,*diffMax,*diffMax<DOUBLE_DIFF_THREASH?"<":">=",
+               DOUBLE_DIFF_THREASH);
+        if (!*diffMax){ //self diff check uselss TODO REMOVE
             if (!memcpy(a,b,n*sizeof(*a)))
-                printf("exact matching among the 2 double vectors\n!");
+                printf("EXACT MATCHING AMONG THE 2 DOUBLE VECTORS\n!");
         }
     }
-    return EXIT_SUCCESS;
+    return out;
 }
 
 void printMatrix(double* mat,ulong m,ulong n,char justNZMarkers){

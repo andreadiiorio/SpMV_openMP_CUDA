@@ -39,7 +39,7 @@ inline void chunksFair(ulong r,spmat* mat,CONFIG* cfg){
     }
     if(chunk_size == chunk_size_new)    return;
     omp_set_schedule(kind,chunk_size_new);
-    VERBOSE printf("chunksFair:\tchunk adapted to %d\n",chunk_size);
+    VERBOSE printf("chunksFair:\tchunk adapted to %d\n",chunk_size_new);
     DEBUG   ompGetRuntimeSchedule(NULL);
 }
 //fair division of @r elements from matrix @mat of threads in @cfg
@@ -68,7 +68,7 @@ inline void chunksFairFolded(ulong r,spmat* mat,CONFIG* cfg){
     if(chunk_size == chunk_size_new)    return;
     omp_set_schedule(kind,chunk_size_new);
     DEBUG{  //check with ICV get
-        printf("chunksFairFolded:\tchunk adapted to %d\n",chunk_size);
+        printf("chunksFairFolded:\tchunk adapted to %d\n",chunk_size_new);
         ompGetRuntimeSchedule(NULL);
     }
 }

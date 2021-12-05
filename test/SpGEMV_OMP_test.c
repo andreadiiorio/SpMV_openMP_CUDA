@@ -18,7 +18,7 @@ int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
 void freeSpmatInternal(spmat* mat);
 void freeSpmat(spmat* mat);
 CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
-CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFairFolded;
+CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFair; //Folded;
 #ifdef CBLAS_TESTS
 #include <cblas.h>
 double* SGEMVCBLAS(spmat* mat, double* inVect){
@@ -72,9 +72,10 @@ int main(int argc, char** argv){
         ERRPRINT("err during conversion MM -> CSR\n");
         return out;
     }
+    VERBOSE printf("parsed matrix %lu x %lu -- %lu NNZ \n",mat->M,mat->N,mat->NZ);
+    vectSize = mat->N;  //size for GEMV
     ////get the vector
     if (!(strncmp(argv[2],RNDVECT,strlen(RNDVECT)))){ //generate a random vector
-        vectSize = mat->N;  //size for GEMV
         if (!(vector = malloc(vectSize * sizeof(*vector)))){
             ERRPRINT("rnd vector malloc failed\n");
             goto _free;
@@ -83,9 +84,15 @@ int main(int argc, char** argv){
             ERRPRINT("fillRndVector errd\n");
             goto _free;
         }
+        DEBUG{ 
+            if (writeDoubleVectorAsStr(RNDVECTORDUMP,vector,vectSize)) 
+                ERRPRINT("couldn't write rnd vector\n");
+            if (writeDoubleVector(RNDVECTORDUMPRAW,vector,vectSize)) 
+                ERRPRINT("couldn't write rnd RAW vector\n");
+        }
     } else{ //read vector from the given file
-        if (!(vector = readVector(argv[2],&vectSize))){
-            fprintf(stderr,"err during readVector at:%s\n",argv[2]);
+        if (!(vector = readDoubleVector(argv[2],&vectSize))){
+            fprintf(stderr,"err during readDoubleVector at:%s\n",argv[2]);
             goto _free;
         }
         CONSISTENCY_CHECKS{
@@ -94,6 +101,7 @@ int main(int argc, char** argv){
                 goto _free;
             }
         }
+        VERBOSE printf("parsed vector of %lu NNZ \n",vectSize);
     }
     if (!(outVector = malloc( mat->M * sizeof(*outVector) ))){
         ERRPRINT("outVector malloc errd\n");
@@ -118,7 +126,7 @@ int main(int argc, char** argv){
             goto _free;
         }
         sgemvSerial(mat,vector,&Conf,outVector);
-        out = doubleVectorsDiff(oracleOut,outVector,mat->M);    
+        out = doubleVectorsDiff(oracleOut,outVector,mat->M,NULL);    
         goto _free;
     }
 #else
@@ -129,7 +137,15 @@ int main(int argc, char** argv){
     }
     sgemvSerial(mat,vector,&Conf,oracleOut);
 #endif
-    
+    DEBUG{
+        if (writeDoubleVector(OUTVECTORDUMPRAW,oracleOut,vectSize))
+            ERRPRINT("couldn't dump out\n");
+        if (writeDoubleVectorAsStr(OUTVECTORDUMP,oracleOut,vectSize))
+            ERRPRINT("couldn't dump out RAW\n");
+    }
+    if (!getConfig(&Conf)){
+        VERBOSE printf("configuration changed from env\n");
+    }
     printf("SpGEMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
       "sparse matrix: %lux%lu-%luNNZ - grid: %ux%u\n",
       AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,Conf.gridRows,Conf.gridCols);
@@ -137,6 +153,7 @@ int main(int argc, char** argv){
     //extra configuration
     int maxThreads = omp_get_max_threads();
     Conf.threadNum = (uint) maxThreads;
+    DEBUG   printf("omp_get_max_threads:\t%d\n",Conf.threadNum); 
     /*
      * get exported schedule configuration, 
      * if chunkSize == 1 set a chunk division function before omp for
@@ -145,9 +162,6 @@ int main(int argc, char** argv){
     ompGetRuntimeSchedule(schedKind_chunk_monotonic);
     Conf.chunkDistrbFunc = chunksNOOP; 
     if (schedKind_chunk_monotonic[1] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
-    if (!getConfig(&Conf)){
-        VERBOSE printf("configuration changed from env");
-    }
     //elapsed stats aux vars
     double times[AVG_TIMES_ITERATION],  timesInteral[AVG_TIMES_ITERATION];
     double elapsedStats[2],  elapsedInternalStats[2], start,end;
@@ -155,14 +169,14 @@ int main(int argc, char** argv){
     SPGEMV_INTERF spgemvFunc;
     for (f=0,spgemvFunc=SpgemvFuncs[f]; spgemvFunc; spgemvFunc=SpgemvFuncs[++f]){
         hprintsf("@computing SpGEMV   with func:\%u at:%p\t",f,spgemvFunc);
-        for (uint i=0;  i< AVG_TIMES_ITERATION; i++){
+        for (uint i=0;  i<AVG_TIMES_ITERATION; i++){
             start = omp_get_wtime();
             if (spgemvFunc(mat,vector,&Conf,outVector)){
                 ERRPRINTS("compute func number:%u failed...\n",f);
                 goto _free;
             }
             end = omp_get_wtime();
-            if ((out = doubleVectorsDiff(oracleOut,outVector,mat->M))) goto _free;
+            if ((out = doubleVectorsDiff(oracleOut,outVector,mat->M,NULL))) goto _free;
             times[i]        = end - start;
             timesInteral[i] = ElapsedInternal;
             ElapsedInternal = Elapsed = 0;
