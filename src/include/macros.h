@@ -18,6 +18,7 @@
 #define UNIF_REMINDER_DISTRI_STARTIDX(i,div,rem) \
     ( (i) * (div) + MIN( (i),(rem) ) )
 
+#define STATIC_ARR_ELEMENTS_N(arr)  (sizeof( (arr) ) / (sizeof(*(arr))))  
 ////PRINTS
 #define CHIGHLIGHT                  "\33[1m\33[92m"
 #define CCC                         CHIGHLIGHT

@@ -54,9 +54,35 @@ CONFIG Conf = {
     .gridCols = 8,
 };
 
+//wrap result check and stats gather of SpMV implementation func at f
+static inline int testSpMVImpl(SPGEMV_INTERF f,spmat* mat,double* vector,
+  double* outVector, double* oracleOut){
+    //elapsed stats aux vars
+    double times[AVG_TIMES_ITERATION],  timesInteral[AVG_TIMES_ITERATION];
+    double elapsedStats[2],  elapsedInternalStats[2], start,end;
+    for (uint i=0;  i<AVG_TIMES_ITERATION; i++){
+        start = omp_get_wtime();
+        if (f(mat,vector,&Conf,outVector)){
+            ERRPRINTS("compute func at:%p failed...\n",f);
+            return EXIT_FAILURE;
+        }
+        end = omp_get_wtime();
+        if (doubleVectorsDiff(oracleOut,outVector,mat->M,NULL)) return EXIT_FAILURE;
+        times[i]        = end - start;
+        timesInteral[i] = ElapsedInternal;
+        ElapsedInternal = Elapsed = 0;
+    }
+    statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
+    statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);
+    printf("timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
+      elapsedStats[0],elapsedStats[1],elapsedInternalStats[0],elapsedInternalStats[1]);
+    return 0;
+}
+
 #define TESTTESTS   "TESTTESTS"
 #define RNDVECT     "RNDVECT"
 #define HELP "usage: MatrixMarket_sparse_matrix_COO[.COMPRESS_EXT], vectorFile || "RNDVECT", ["TESTTESTS"]\n"
+
 int main(int argc, char** argv){
     int out=EXIT_FAILURE;
     if (init_urndfd())  return out;
@@ -66,8 +92,10 @@ int main(int argc, char** argv){
     ulong vectSize;
     spmat* mat = NULL; 
     ////parse sparse matrix and dense vector
+    //extract compressed matrix
     char* trgtMatrix = TMP_EXTRACTED_MARTIX;
     if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatrix = argv[1];
+    //parse for CSR implementations
     if (!(mat = MMtoCSR(trgtMatrix))){
         ERRPRINT("err during conversion MM -> CSR\n");
         return out;
@@ -149,7 +177,6 @@ int main(int argc, char** argv){
     printf("SpGEMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
       "sparse matrix: %lux%lu-%luNNZ - grid: %ux%u\n",
       AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,Conf.gridRows,Conf.gridCols);
-    //// PARALLEL COMPUTATIONs TO CHECK
     //extra configuration
     int maxThreads = omp_get_max_threads();
     Conf.threadNum = (uint) maxThreads;
@@ -161,32 +188,26 @@ int main(int argc, char** argv){
     int schedKind_chunk_monotonic[3];
     ompGetRuntimeSchedule(schedKind_chunk_monotonic);
     Conf.chunkDistrbFunc = chunksNOOP; 
-    if (schedKind_chunk_monotonic[1] == 1)  Conf.chunkDistrbFunc = chunkDistrbFunc;
-    //elapsed stats aux vars
-    double times[AVG_TIMES_ITERATION],  timesInteral[AVG_TIMES_ITERATION];
-    double elapsedStats[2],  elapsedInternalStats[2], start,end;
+    if (schedKind_chunk_monotonic[0] != omp_sched_static)
+        Conf.chunkDistrbFunc = chunkDistrbFunc;
+    //// PARALLEL COMPUTATIONs TO CHECK
     uint f;
     SPGEMV_INTERF spgemvFunc;
-    for (f=0,spgemvFunc=SpgemvFuncs[f]; spgemvFunc; spgemvFunc=SpgemvFuncs[++f]){
-        hprintsf("@computing SpGEMV   with func:\%u at:%p\t",f,spgemvFunc);
-        for (uint i=0;  i<AVG_TIMES_ITERATION; i++){
-            start = omp_get_wtime();
-            if (spgemvFunc(mat,vector,&Conf,outVector)){
-                ERRPRINTS("compute func number:%u failed...\n",f);
-                goto _free;
-            }
-            end = omp_get_wtime();
-            if ((out = doubleVectorsDiff(oracleOut,outVector,mat->M,NULL))) goto _free;
-            times[i]        = end - start;
-            timesInteral[i] = ElapsedInternal;
-            ElapsedInternal = Elapsed = 0;
-        }
-        statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
-        statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);
-        printf("timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
-          elapsedStats[0],elapsedStats[1],elapsedInternalStats[0],elapsedInternalStats[1]);
+    for (f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvCSRFuncs); f++){
+        spgemvFunc = SpgemvCSRFuncs[f];
+        hprintsf("@computing SpGEMV   with func:\%u CSR at:%p\t",f,spgemvFunc);
+        if(testSpMVImpl(spgemvFunc,mat,vector,outVector,oracleOut))  goto _free;
     }
-
+    //ELL IMPLEMENTATIONS
+    freeSpmat(mat);
+    if (!(mat = MMtoELL(trgtMatrix)))   goto _free;
+    for (f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvELLFuncs); f++){
+        spgemvFunc = SpgemvELLFuncs[f];
+        hprintsf("@computing SpGEMV   with func:\%u ELL at:%p\t",f,spgemvFunc);
+        if(testSpMVImpl(spgemvFunc,mat,vector,outVector,oracleOut))  goto _free;
+    }
+    
+    out = EXIT_SUCCESS;
     _free:
     if (mat)          freeSpmat(mat);
     if (vector)       free(vector);

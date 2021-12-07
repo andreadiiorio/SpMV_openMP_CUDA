@@ -8,6 +8,7 @@
 #include "sparseMatrix.h"
 #include "utils.h"
 
+////////////////////////  CSR SPECIFIC -- TODO RENAME //////////////////
 ///SPARSE MATRIX PARTITIONING
 ulong* colsOffsetsPartitioningUnifRanges(spmat* A,ulong gridCols){
     ulong subRowsN = A->M * gridCols;
@@ -115,7 +116,7 @@ spmat* colsPartitioningUnifRanges(spmat* A,ulong gridCols){
     if(colPartsLens)    free(colPartsLens);
     return NULL;
 }
-
+////////////////////////////////////////////////////////////////////////
 int spmatDiff(spmat* A, spmat* B){
     if (A->NZ != B->NZ){
         ERRPRINT("NZ differ\n");

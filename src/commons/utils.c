@@ -275,13 +275,14 @@ int doubleVectorsDiff(double* a, double* b, ulong n,double* diffMax){
             ERRPRINTS("DIFF IN DOUBLE VECTORS: |%13lg| > threash=%lf\tat: %lu\n",
               diff,DOUBLE_DIFF_THREASH,i);
             #ifdef DOUBLE_VECT_DIFF_EARLY_EXIT
-            return out;
+            #pragma message("DOUBLE_VECT_DIFF_EARLY_EXIT: only first diff double reported")
+            return EXIT_FAILURE;
             #endif
         }
         if ( ABS(*diffMax) < diffAbs )   *diffMax = diff;
     }
     DEBUG{
-        printf("checked diff %s"CEND" between 2 double vector of %lu elements"
+        printf("\nchecked diff %s"CEND" between 2 double vector of %lu elements"
                "\tmax diff: %le %s threash: %le\n", !out?CCC"OK":CCCERR"ERR!",
                 n,*diffMax,*diffMax<DOUBLE_DIFF_THREASH?"<":">=",
                DOUBLE_DIFF_THREASH);
@@ -358,7 +359,7 @@ int extractInTmpFS(char* path, char* tmpFsDecompressPath){
           decompressCmdBase,path,tmpFsDecompressPath) < 0){
         ERRPRINT("extractInTmpFS, snprintf errd\n");
     }
-    VERBOSE printf("decompressing %s --> %s\ncmd:\t%s \n ",path,tmpFsDecompressPath,decompressCmd);
+    VERBOSE printf("decompressing %s --> %s\ncmd:\t%s\n",path,tmpFsDecompressPath,decompressCmd);
     return system(decompressCmd);
 }
 

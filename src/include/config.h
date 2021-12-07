@@ -35,7 +35,15 @@ typedef struct{
 #ifndef CONSISTENCY_CHECKS
     #define CONSISTENCY_CHECKS          if( TRUE )
 #endif
+///AUDIT extra configuration
+//#define ROWLENS
+#ifdef ROWLENS
+#pragma message("ROW_LENS ARRAY ENABLED")
+#endif
 ///CONSTS
+#define ELL_MAX_ENTRIES ( 100l << 20 )  //ell max (padded) entries supported in a matrix 
+#define ELL_AS_FILLER       (0 )        //handled with calloc
+//TODO NOW FILLED WITH LAST NNPADDED COL #define ELL_JA_FILLER       (-1)
 //#define DOUBLE_VECT_DIFF_EARLY_EXIT 1
 //#define RNDVECTMIN          222222
 #define VECTOR_STEP_REALLOC 25

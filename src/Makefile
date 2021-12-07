@@ -26,7 +26,7 @@ objs = SpGEMV_OMP.o #SpGEMM_CUDA.o
 all: $(objs)
 .PHONY: all
 
-SpGEMV_OMP.o: main_OMP.c SpGEMV_OMP.c  commons/*.c lib/*.c include/*.h
+SpGEMV_OMP.o: main_OMP.c SpGEMV_*_OMP.c  commons/*.c lib/*.c include/*.h
 	$(CC) $(CFLAGS) $(CONSTS) $(MACROS) -I include/ $(filter-out %.h,$^) -o $@
 clean:
 	rm -i *.o 

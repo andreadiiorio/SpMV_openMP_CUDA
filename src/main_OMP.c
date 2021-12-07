@@ -37,7 +37,7 @@ int main(int argc, char** argv){
     }
     SPGEMV_INTERF computeFunc;
     switch (cmode){
-        case ROWS:         computeFunc=&spgemvRowsBasic;break;
+        case ROWS:         computeFunc=&spgemvRowsBasicCSR;break;
         case SORTED_ROWS:  printf("s");break;
         case TILES:  printf("t");break;
     }

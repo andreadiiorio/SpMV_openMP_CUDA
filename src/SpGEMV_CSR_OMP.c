@@ -1,3 +1,6 @@
+//dev:  Andrea Di Iorio - 0277550
+//CSR sparse matrixes SpMV implementation for OMP
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,7 +16,7 @@
 //global vars	->	audit
 double Start,End,Elapsed,ElapsedInternal;
 
-int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spgemvRowsBasicCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
 
     double acc;
@@ -44,7 +47,7 @@ int spgemvRowsBasic(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     return out;
 }
 
-int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spgemvRowsBlocksCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc;
@@ -80,13 +83,7 @@ int spgemvRowsBlocks(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     return out;
 }
 
-/*
- * spgemv via 2D decomposition of matrix @mat with @cfg
- * each tile of the matrix produce a part of the result in a tmp allocated space
- * 2D tiles of @mat are accessed via offsets from an aux allocated matrix map
- * final reduction to sum up all intermediate tiles' results
- */
-int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spgemvTilesCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;
@@ -150,13 +147,7 @@ int spgemvTiles(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
 }
 
 
-/*
- * spgemv via 2D decomposition of matrix @mat with @cfg
- * each tile of the matrix produce a part of the result in a tmp allocated space
- * 2D tiles of @mat are accessed via allocated matrixes from column partitions of @mat
- * final reduction to sum up all intermediate tiles' results
- */
-int spgemvTilesAllocd(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spgemvTilesAllocdCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;

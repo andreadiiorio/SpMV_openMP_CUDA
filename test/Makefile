@@ -23,7 +23,7 @@ DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROS
 #bind to source original project
 srcDir=$(realpath ../src)
 srcInclDir=$(realpath ../src/include)
-coreSrcs:=$(srcDir)/SpGEMV_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
+coreSrcs:=$(srcDir)/SpGEMV_*_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
 testSrcs:=SpGEMV_OMP_test.c  $(coreSrcs)
 
 ##CBLAS BUILD NEEDED

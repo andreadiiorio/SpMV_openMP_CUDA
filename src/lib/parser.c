@@ -9,6 +9,7 @@
 #include "macros.h"
 #include "utils.h"
 
+////COO PARSE
 int MMCheck(MM_typecode mcode) {
     if (!mm_is_matrix(mcode)){  //consistency checks among flags in @mcode
         ERRPRINT("invalid matrix: not a matrix\n");
@@ -21,7 +22,7 @@ int MMCheck(MM_typecode mcode) {
     return EXIT_SUCCESS;
 }
 
-entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode){
+entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode,ulong* rowLens){
     int scanndRet=0;
     ulong nzIdx=0;                //expanded num of nz (in case of sym matrix)
     ulong row,col;                //current entry's row,col from MM -> 1 based
@@ -30,7 +31,7 @@ entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode){
     ///init
     if (mm_is_symmetric(mcode)){
         (*NZ) *= 2;
-        VERBOSE     printf("simmetric matrix\n");
+        VERBOSE     printf("MMtoCOO:\tparsing a simmetric matrix\n");
     }
     if (!(entries     = malloc(*NZ * sizeof(*entries)))){
         ERRPRINT("MMtoCOO:  entries malloc errd\n");
@@ -60,25 +61,17 @@ entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode){
                 goto _err; 
             }
         }
-       ////ADD THE CURRENT MATRIX ENTRY
-       //TODO OLD VERSION IRP will be builded as definition of Row start Pointers
-       //from shifted row lenghts: in IRP[1] <- len Row[0], IRP[2] <- len ROw[1]
-       //after, cumulating the row lens as increment to get row start idx ptrs
-       //mat -> IRP[row]++;   //now just count entries per row 1based
-       entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
-
+        ////ADD THE CURRENT MATRIX ENTRY
+        rowLens[row-1]++;
+        entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
         //also mirrored entry if sym.matrix with reflected idx inside matrix limits
         if (mm_is_symmetric(mcode) && row != col ){
             //TODO COSTRAINED FORMAT ?&& row <= mat->N && col <= mat->M ){
-
             swap(row,col);
-            //mat-> IRP[row]++;   //now just count entries per row
+            rowLens[row-1]++;
             entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
         }
     }
-    /*if (SORT_MM_ENTRIES){ //force entries sorting before pack in CSR 
-        //TODO SORT entries by key=row,col 
-    }*/
    
     CONSISTENCY_CHECKS  assert( nzIdx == *NZ );
     return entries;
@@ -87,7 +80,58 @@ entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode){
     free(entries);  return NULL;
 } 
 
-int COOtoCSR(entry* entries, spmat* mat){ 
+void freeMatrixMarket(MatrixMarket* mm){
+    if(mm->entries) free(mm->entries);
+    if(mm->rowLens) free(mm->rowLens);
+    free(mm);
+}
+MatrixMarket* MMRead(char* matPath){
+    FILE* fp = fopen(matPath, "r");
+    if (!fp){
+        perror("fopen");
+        return NULL;
+    }
+    MatrixMarket* out = calloc(1,sizeof(*out));
+    if (!out){
+        ERRPRINT("MMRead out malloc errd\n");
+        return NULL;
+    }
+    //banner -> parse  matrix specs
+    if (mm_read_banner(fp, &out->mcode) != 0) {
+        fprintf(stderr,"mm_read_banner err at:%s\n",matPath);
+        goto err;
+    }
+    //assert matrix is compatible with this app scope
+    if (MMCheck(out->mcode))     goto err;
+
+    //parse sizes
+    //TODO OVERCOME uint limitation?
+    if(mm_read_mtx_crd_size(fp,(uint*) &out->M, (uint*) &out->N, (uint*) &out->NZ)){
+        fprintf(stderr,"mm_read_mtx_crd_size err at %s:\n",matPath);
+        goto err;
+    }
+    if (!(out->rowLens = calloc(out->M,sizeof(*(out->rowLens))))){
+        ERRPRINT("MMRead:\trowLens calloc errd\n");
+        goto err;
+    }
+    if (!(out->entries = MMtoCOO(&out->NZ, fp, out->mcode,out->rowLens))){
+        ERRPRINTS("MAT PARSE TO CSR ERR at:%s\n",matPath);
+        goto err;
+    }
+    goto _end;
+
+    err:
+    freeMatrixMarket(out);
+    free(out);
+    out = NULL;
+    _end:
+    fclose(fp);
+    return out;
+}
+
+
+////COO -> ANYTHING ELSE CONVERSION
+int COOtoCSR(entry* entries, spmat* mat,ulong* rowLens){ 
     int out = EXIT_FAILURE;
     ulong idx;
     long* _rowsLastCol = NULL;    //for each row -> last added entry's columnIdx 
@@ -103,15 +147,24 @@ int COOtoCSR(entry* entries, spmat* mat){
         }
         memset(_rowsLastCol,-1,mat->M*sizeof(*_rowsLastCol));
     }
-    //get rowLens -> IRP (partial)
-    for (ulong i=0; i<mat->NZ; i++)     mat->IRP[entries[i].row+1]++;
-    #ifdef ROWLENS
-    memcpy(mat->RL,mat->IRP + 1,sizeof(*mat->IRP) * mat->M);
-    #endif
+    /*TODO OLD
+     * //get rowLens->IRP (partial), TODO moved MMtoCOO to avoid FULL rescan entries
+     * for (ulong i=0; i<mat->NZ; i++)     mat->IRP[entries[i].row+1]++;
+     * memcpy(mat->RL,mat->IRP + 1,sizeof(*mat->IRP) * mat->M); //TODO in next ifdef
+     * for (ulong i=2; i<mat->M+1; i++)    mat->IRP[i] += mat->IRP[i-1];
+     * OLD2: rowLens memcpy ... no just moved the pointer
+     * #ifdef ROWLENS
+     * memcpy(mat->RL,rowLens,sizeof(*rowLens) * mat->M); //TODO in next ifdef
+     * #endif
+     */
     //IRP: trasform rows lens as increments to build row index "pointer"
     //0th -> 0 mandatory; 1th = 0th row len, ...., M+1th = end of Mth row
+    memcpy(mat->IRP+1,rowLens,sizeof(*rowLens) * mat->M);//init IRP with rows lens
     for (ulong i=2; i<mat->M+1; i++)    mat->IRP[i] += mat->IRP[i-1];
     CONSISTENCY_CHECKS  assert(mat->IRP[mat->M] == mat->NZ);
+    ///FILL 
+    //TODO EXPECTED entries with .col entries -> CONSISTENCY_CHECKS
+    //sorted for each row (even nn sequential in @entries)
     //entries write in CSR format
     entry* e;
     for (ulong i=0; i<mat->NZ; i++) {
@@ -132,52 +185,105 @@ int COOtoCSR(entry* entries, spmat* mat){
     out = EXIT_SUCCESS;
 
     _end:
-    if(rowsNextIdx)                         free(rowsNextIdx);
-    CONSISTENCY_CHECKS{ if(_rowsLastCol)    free(_rowsLastCol);}
+    if(rowsNextIdx)     free(rowsNextIdx);
+    if(_rowsLastCol)    free(_rowsLastCol);
 
     return out;
 }
 
+int COOtoELL(entry* entries, spmat* mat, ulong* rowLens){
+    int out=EXIT_FAILURE;
+    ulong maxRow = 0, col, _ellEntriesTot, *rowsNextCol;
+    long* _rowsLastCol=NULL;
+    entry* e;
+    for (ulong i=0; i<mat->M; i++)  maxRow = MAX(maxRow,rowLens[i]); 
+    _ellEntriesTot = 2*mat->M*maxRow;
+    if ( _ellEntriesTot > ELL_MAX_ENTRIES ){
+        ERRPRINTS("Required entries %lu -> %lu uMB for the matrix exceed the "
+          "designated threashold of: %lu  -> %lu MB for ellpack\n",
+          _ellEntriesTot,(sizeof(double)*_ellEntriesTot) >> 20,
+          ELL_MAX_ENTRIES,(sizeof(double)*ELL_MAX_ENTRIES) >> 20);
+        return EXIT_FAILURE;
+    }
+    //malloc aux vects
+    if (!(rowsNextCol = calloc(mat->M,sizeof(*rowsNextCol)))){
+        ERRPRINT("MMtoELL:\trowsNextCol calloc errd\n");
+        goto _end;
+    }
+    CONSISTENCY_CHECKS{ //alloc and init aux arr for entries SORT CHECK
+        if (!(_rowsLastCol = malloc(mat->M*sizeof(*_rowsLastCol)))){
+            ERRPRINT("MMtoELL:\trowsLastCol malloc errd\n");
+            goto _end;
+        }
+        memset(_rowsLastCol,-1,mat->M*sizeof(*_rowsLastCol));
+    }
+    ///malloc dependant to MAX ROW LEN, err free in the caller
+    if (!(mat->AS = calloc(mat->M * maxRow,  sizeof(*(mat->AS))))){
+        ERRPRINT("MMtoELL:\tELL->AS calloc errd\n");
+        goto _end;
+    } //zero init for auto rows residual fill with 0
+    if (!(mat->JA = malloc(mat->M * maxRow * sizeof(*(mat->JA))))){
+        ERRPRINT("MMtoELL:\tELL->JA malloc errd\n");
+        goto _end;
+    }
+
+    mat->MAX_ROW_NZ = maxRow;
+    /*#ifdef ROWLENS
+     *memcpy(mat->RL,rowLens,sizeof(*rowLens) * mat->M); //TODO in next ifdef
+     *#endif 
+     */
+    ///FILL NZ
+    //TODO EXPECTED entries with .col entries -> CONSISTENCY_CHECKS
+    //sorted for each row (even nn sequential in @entries)
+    for (ulong i=0; i<mat->NZ; i++){
+        e = entries + i;
+        CONSISTENCY_CHECKS{ //TODO CHECK IF COO ENTRIES ARE COLS SORTED for righe successive
+            #pragma message("COO sorting check enabled")
+            if (_rowsLastCol[e->row] >= (long) e->col){
+                ERRPRINTS("not sorted entry:%ld,%ld,%lf",e->row,e->col,e->val);
+                goto _end;
+            }
+            _rowsLastCol[e->row] = e->col;
+        }
+        col = rowsNextCol[e->row]++;    //place entry in its row's sequent spot
+        mat->AS[ IDX2D(e->row,col,maxRow) ] = e->val;
+        mat->JA[ IDX2D(e->row,col,maxRow) ] = e->col;
+         
+    }
+    ///FILL PAD
+    ulong padded = 0;
+    for (ulong r=0; r<mat->M; r++){
+        for (ulong c=rowLens[r],j=IDX2D(r,c,maxRow); c<maxRow; c++,j++,padded++){
+            //mat->AS[j] = ELL_AS_FILLER; //TODO ALREADY DONE IN CALLOC
+            mat->JA[j] = mat->JA[rowLens[r]-1]; //ELL_JA_FILLER;
+        }
+    }
+    VERBOSE 
+      printf("padded %lu entries = %lf%% of NZ\n",padded,100*padded/(double) mat->NZ);
+    out = EXIT_SUCCESS;
+    _end:
+    if(rowsNextCol)  free(rowsNextCol);
+    if(_rowsLastCol) free(_rowsLastCol);
+    return out;
+}
+////wrapper MM -> specialized target
 spmat* MMtoCSR(char* matPath){
-    MM_typecode mcode;
-    spmat* mat = NULL;
-    entry* entries=NULL;
-    FILE* fp = fopen(matPath, "r");
-    if (!fp){
-        perror("fopen");
+    spmat* mat    = NULL;
+    MatrixMarket* mm = MMRead(matPath);
+    if (!mm){
+        ERRPRINT("MatrixMarket parse err\n");
         return NULL;
     }
-    //banner -> parse  matrix specs
-    if (mm_read_banner(fp, &mcode) != 0) {
-        fprintf(stderr,"mm_read_banner err at:%s\n",matPath);
-        goto err;
-    }
-    //assert matrix is compatible with this app scope
-    if (MMCheck(mcode))     goto err;
-    //alloc sparse matrix components
     if (!(mat = calloc(1,sizeof(*mat)))){
         ERRPRINT(" mat struct alloc errd");
         goto err;
     }
-    //parse sizes
-    //TODO OVERCOME uint limitation?
-    if(mm_read_mtx_crd_size(fp,(uint*) &mat->M, (uint*) &mat->N, (uint*) &mat->NZ)){
-        fprintf(stderr,"mm_read_mtx_crd_size err at %s:\n",matPath);
-        goto err;
-    }
+    mat -> M = mm->M;
+    mat -> N = mm->N;
+    mat -> NZ= mm->NZ;
+    //alloc sparse matrix components
     if (!(mat->IRP = calloc(mat->M+1,sizeof(*(mat->IRP))))){
         ERRPRINT("IRP calloc err\n");
-        goto err;
-    }
-#ifdef ROWLENS
-    if (!(mat->RL = calloc(mat->M,sizeof(*(mat->RL))))){
-        ERRPRINT("IRP calloc err\n");
-        goto err;
-    }
-#endif
-
-    if (!(entries = MMtoCOO(&(mat->NZ), fp, mcode)) ){
-        ERRPRINTS("MAT PARSE TO CSR ERR at:%s\n",matPath);
         goto err;
     }
     ////alloc core struct of CSR
@@ -189,7 +295,11 @@ spmat* MMtoCSR(char* matPath){
         ERRPRINT("AS malloc err\n");
         goto err;  
     }
-    if (COOtoCSR(entries,mat))  goto err;
+    if (COOtoCSR(mm->entries,mat,mm->rowLens))  goto err;
+    #ifdef ROWLENS
+    mat->RL = mm->rowLens;
+    mm->rowLens = NULL; //avoid free in @freeMatrixMarket
+    #endif
    
     goto _free;
 
@@ -198,8 +308,38 @@ spmat* MMtoCSR(char* matPath){
     if (mat)        freeSpmat(mat);
     mat = NULL;
     _free:
-    fclose(fp);
-    if (entries)    free(entries);
+    freeMatrixMarket(mm);
     return mat;
 }
-//TODO spmat* MMtoHELL(char* matPath){}
+
+
+spmat* MMtoELL(char* matPath){
+    spmat* mat    = NULL;
+    MatrixMarket* mm = MMRead(matPath);
+    if (!mm){
+        ERRPRINT("MatrixMarket parse err\n");
+        return NULL;
+    }
+    if (!(mat = calloc(1,sizeof(*mat)))){
+        ERRPRINT(" mat struct alloc errd");
+        goto err;
+    }
+    ////alloc core struct of CSR
+    mat -> M = mm->M;
+    mat -> N = mm->N;
+    mat -> NZ= mm->NZ;
+    if (COOtoELL(mm->entries,mat,mm->rowLens))  goto err;
+    #ifdef ROWLENS
+    mat->RL = mm->rowLens;
+    mm->rowLens = NULL; //avoid free in @freeMatrixMarket
+    #endif
+
+    goto _free;
+
+    err:
+    if(mat) freeSpmat(mat);
+    mat = NULL;
+    _free:
+    freeMatrixMarket(mm);
+    return mat;
+}
