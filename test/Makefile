@@ -11,7 +11,7 @@ CFLAGS+=$(RUNTIME)
 #SYSTEM CONFIGURATION
 UNAME=$(shell uname -a | tr -c -d \[:alnum:\] | tr \[:lower:\] \[:upper:\] ) #upper uname-a
 TMPDIR=/run/user/$(shell id -u)/
-
+#MACROS
 CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25   #TODO PUT IN /raccolta
 MACROS = -DDEBUGPRINT="if(FALSE)" -DDEBUG="if(FALSE)" -DCONSISTENCY_CHECKS="if(FALSE)" -DVERBOSE="if(FALSE)"  -DDEBUGCHECKS="if(FALSE)" 
 MACROSDBG = -DCONSISTENCY_CHECKS="if(TRUE)"  -DDEBUGCHECKS="if(TRUE)" -DVERBOSE="if(TRUE)" -DDEBUG="if(TRUE)"
@@ -24,7 +24,7 @@ DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROS
 srcDir=$(realpath ../src)
 srcInclDir=$(realpath ../src/include)
 coreSrcs:=$(srcDir)/SpGEMV_*_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
-testSrcs:=SpGEMV_OMP_test.c  $(coreSrcs)
+testSrcs:=SpGEMV_test.c  $(coreSrcs)
 
 ##CBLAS BUILD NEEDED
 CBLAS_INCLUDE=CBLAS_LAPACK/include 
@@ -52,24 +52,24 @@ BLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/librefblas.a
 objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
 #FAST TESTS - PERFGATHER
-test_SpGEMV_OMP_Stats.o:	$(testSrcs) 
+test_SpGEMV_Stats.o:	$(testSrcs) 
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
 
-test_SpGEMV_OMP_Stats_NoReductionSIMD.o:	$(testSrcs) 
+test_SpGEMV_Stats_NoReductionSIMD.o:	$(testSrcs) 
 	$(CC)  -o $@ $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS)  -DSIMD_ROWS_REDUCTION=FALSE
 
 test_SpGEMV_OMP.o: 	$(testSrcs)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -UAVG_TIMES_ITERATION  -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" 
 ##DEBUG BUILDS
-test_SpGEMV_OMP_DBG.o: 	$(testSrcs)
+test_SpGEMV_DBG.o: 	$(testSrcs)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) 
 
-test_SpGEMV_OMP_DBG_NoReductionSIMD.o: 	$(testSrcs)
+test_SpGEMV_DBG_NoReductionSIMD.o: 	$(testSrcs)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
 	 $(DBG)  -DSIMD_ROWS_REDUCTION=FALSE
 
-test_CBLAS_SpGEMV_OMP.elf: 	$(testSrcs)
+test_CBLAS_SpGEMV_OMP.elf: 	$(testSrcs) SpGEMV_CBLAS.c
 	mkdir -p /tmp/oldBuilds
 	mv *.o /tmp/oldBuilds
 	#create objectfile not linked

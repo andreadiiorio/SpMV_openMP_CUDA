@@ -10,7 +10,10 @@
 #include "macros.h"
 #include "ompChunksDivide.h"
 #include "ompGetICV.h"  //ICV - RUNTIME information audit auxs
-
+#ifdef CBLAS_TESTS
+//serial dense computation with CBLAS
+double* SGEMVCBLAS(spmat* mat, double* inVect);
+#endif
 ///inline export here 
 //SPMV_CHUNKS_DISTR spmvChunksFair; 
 spmat* allocSpMatrix(ulong rows, ulong cols);
@@ -18,37 +21,10 @@ int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
 void freeSpmatInternal(spmat* mat);
 void freeSpmat(spmat* mat);
 CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
+
+//global vars	->	audit
+double Start,End,Elapsed,ElapsedInternal;
 CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFair; //Folded;
-#ifdef CBLAS_TESTS
-#include <cblas.h>
-double* SGEMVCBLAS(spmat* mat, double* inVect){
-    CBLAS_LAYOUT layout=CblasRowMajor;
-    CBLAS_TRANSPOSE notrans=CblasNoTrans;
-    CBLAS_INT m=mat->M, n=mat->N;
-    double* denseMat = CSRToDense(mat);
-    if (!denseMat){
-        ERRPRINT("GEMVCheckCBLAS: aux dense matrix alloc failed\n");
-        return NULL;
-    }
-    double* oracleOut = malloc(m * sizeof(*oracleOut));
-    if (!oracleOut){
-        ERRPRINT("GEMVCheckCBLAS: out for serial oracle malloc failed\n");
-        goto _err;
-    }
-    VERBOSE printf("computimg Sparse GEMV using densification over LAPACK.CBLAS\n");
-    cblas_dgemv(layout,notrans,m,n,1.0,denseMat,n,inVect,1,0.0,oracleOut,1);
-    
-    _free:
-    free(denseMat);
-    return oracleOut;
-
-    _err:
-    if (denseMat)   free(denseMat);
-    if (oracleOut)  free(oracleOut);
-    return NULL;
-}
-#endif 
-
 CONFIG Conf = {
     .gridRows = 8,
     .gridCols = 8,
@@ -81,8 +57,8 @@ static inline int testSpMVImpl(SPGEMV_INTERF f,spmat* mat,double* vector,
 
 #define TESTTESTS   "TESTTESTS"
 #define RNDVECT     "RNDVECT"
-#define HELP "usage: MatrixMarket_sparse_matrix_COO[.COMPRESS_EXT], vectorFile || "RNDVECT", ["TESTTESTS"]\n"
-
+#define HELP "usage: MatrixMarket_sparse_matrix_COO[.COMPRESS_EXT]," \
+    " vectorFile || "RNDVECT", ["TESTTESTS" (Requires#-DCBLAS_TESTS) ]\n"
 int main(int argc, char** argv){
     int out=EXIT_FAILURE;
     if (init_urndfd())  return out;
@@ -180,10 +156,10 @@ int main(int argc, char** argv){
     //extra configuration
     int maxThreads = omp_get_max_threads();
     Conf.threadNum = (uint) maxThreads;
-    DEBUG   printf("omp_get_max_threads:\t%d\n",Conf.threadNum); 
+    DEBUG   printf("omp_get_max_threads:\t%d\n",maxThreads); 
     /*
      * get exported schedule configuration, 
-     * if chunkSize == 1 set a chunk division function before omp for
+     * if schedule != static -> dyn like -> set a chunk division function before omp for
      */
     int schedKind_chunk_monotonic[3];
     ompGetRuntimeSchedule(schedKind_chunk_monotonic);
@@ -191,9 +167,8 @@ int main(int argc, char** argv){
     if (schedKind_chunk_monotonic[0] != omp_sched_static)
         Conf.chunkDistrbFunc = chunkDistrbFunc;
     //// PARALLEL COMPUTATIONs TO CHECK
-    uint f;
     SPGEMV_INTERF spgemvFunc;
-    for (f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvCSRFuncs); f++){
+    for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvCSRFuncs); f++){
         spgemvFunc = SpgemvCSRFuncs[f];
         hprintsf("@computing SpGEMV   with func:\%u CSR at:%p\t",f,spgemvFunc);
         if(testSpMVImpl(spgemvFunc,mat,vector,outVector,oracleOut))  goto _free;
@@ -201,7 +176,7 @@ int main(int argc, char** argv){
     //ELL IMPLEMENTATIONS
     freeSpmat(mat);
     if (!(mat = MMtoELL(trgtMatrix)))   goto _free;
-    for (f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvELLFuncs); f++){
+    for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpgemvELLFuncs); f++){
         spgemvFunc = SpgemvELLFuncs[f];
         hprintsf("@computing SpGEMV   with func:\%u ELL at:%p\t",f,spgemvFunc);
         if(testSpMVImpl(spgemvFunc,mat,vector,outVector,oracleOut))  goto _free;

@@ -12,8 +12,10 @@
 
 //inline funcs
 CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
-CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFairFolded;
 
+//global vars	->	audit
+double Start,End,Elapsed,ElapsedInternal;
+CHUNKS_DISTR_INTERF chunkDistrbFunc=&chunksFairFolded;
 CONFIG Conf = {
     .gridRows = 8,
     .gridCols = 8,

@@ -13,8 +13,6 @@
 #include "config.h"
 #include "ompChunksDivide.h"
 
-//global vars	->	audit
-double Start,End,Elapsed,ElapsedInternal;
 
 int spgemvRowsBasicCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;

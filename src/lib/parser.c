@@ -67,7 +67,7 @@ entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode,ulong* rowLens){
         //also mirrored entry if sym.matrix with reflected idx inside matrix limits
         if (mm_is_symmetric(mcode) && row != col ){
             //TODO COSTRAINED FORMAT ?&& row <= mat->N && col <= mat->M ){
-            swap(row,col);
+            SWAP(row,col);
             rowLens[row-1]++;
             entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
         }

@@ -7,9 +7,9 @@
 #define	MIN(a,b)			        ((a) < (b) ? (a) : (b))
 #define MAX(a,b)			        ((a) > (b) ? (a) : (b))
 #define AVG(a,b)                    ((a)/2 + (b)/2 + ((a)%2+(b)%2)/2)
-#define swap(a,b)                   (a)=(a)^(b);(b)=(b)^(a);(a)=(a)^(b)
+#define SWAP(a,b)                   (a)=(a)^(b);(b)=(b)^(a);(a)=(a)^(b)
 //ceil(x/y) with integers
-#define INT_DIV_CEIL(x,y)		    ( (x-1) / y + 1 )
+#define INT_DIV_CEIL(x,y)		    ( ( (x) - 1) / (y) + 1 )
 //2D ROW MAJOR indexing wrap compute
 #define IDX2D(i,j,nCols)            ((j) + (i)*(nCols))
 ///distribuite reminder @rem in group givin an extra +1 to the first @rem
@@ -19,6 +19,9 @@
     ( (i) * (div) + MIN( (i),(rem) ) )
 
 #define STATIC_ARR_ELEMENTS_N(arr)  (sizeof( (arr) ) / (sizeof(*(arr))))  
+///utilsPREP
+#define _STRIFY(x)  #x
+#define STRIFY(x)   _STRIFY(x)
 ////PRINTS
 #define CHIGHLIGHT                  "\33[1m\33[92m"
 #define CCC                         CHIGHLIGHT
