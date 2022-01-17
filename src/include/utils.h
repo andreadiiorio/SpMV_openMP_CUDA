@@ -19,6 +19,7 @@ int init_urndfd(); // wrap init urndFd
  */
 //wrap read cycle over @fd
 int read_wrap(int fd,void* dst,size_t count);
+int fread_wrap(FILE* fp,void* dst,size_t count);
 //dual of read_wrap
 int write_wrap(int fd,void* src,size_t count);
 //create or open file at @outFpath for write
@@ -28,11 +29,12 @@ int createNewFile(char* const outFpath);
 //e.g. read with od -tf8 -w8 fpath : OCTALOFFSET:   DOUBLE FULL DIGITS
 int writeDoubleVector(char* fpath,double* v,ulong size);
 /*
- * read vector of arbitrary size from @fpath, true lenght in *size
+ * read vector of double [Str] of arbitrary size from @fpath, true lenght in *size
  * if size point to a nnz value, the initial allocation will be of *size
  * eventual successive reallocation done multipling *size with VECTOR_STEP_REALLOC
  */
 double* readDoubleVector(char* fpath,ulong* size);
+double* readDoubleVectorStr(char* fpath,ulong* size);
 
 ///STRUCTURED DATA IO -- BUFFERED: FSCANF - FPRINTF
 //dual of readDoubleVectorVector

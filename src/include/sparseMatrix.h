@@ -5,7 +5,6 @@
 
 #include "macros.h"
 #include "config.h"
-
 typedef struct{
     ulong NZ,M,N;
     ulong* JA;
@@ -60,11 +59,11 @@ inline int IS_NNZ_linear(spmat* smat,ulong i,ulong j){    //linear -> O(ROWLENGH
 ////aux functions
 //free sparse matrix
 inline void freeSpmatInternal(spmat* mat){
-    if(mat->AS)    free(mat->AS);  
-    if(mat->JA)    free(mat->JA);  
-    if(mat->IRP)   free(mat->IRP);  
+    free(mat->AS);  
+    free(mat->JA);  
+    free(mat->IRP);  
 #ifdef ROWLENS
-    if(mat->RL)    free(mat->RL);
+    free(mat->RL);
 #endif 
 }
 inline void freeSpmat(spmat* mat){
@@ -74,15 +73,15 @@ inline void freeSpmat(spmat* mat){
 
 //free max aux structs not NULL pointed
 inline void freeSpAcc(SPACC* r){ 
-    if(r->AS)   free(r->AS);
-    if(r->JA)   free(r->JA);
+    free(r->AS);
+    free(r->JA);
 }
 ////alloc&init functions
 //alloc&init internal structures only dependent of dimensions @rows,@cols
 inline int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat){
     mat -> M = rows;
     mat -> N = cols;
-    if (!(mat->IRP=calloc(mat->M+1,sizeof(*(mat->IRP))))){ //calloc only for 0th
+    if (!(mat->IRP=(typeof(mat->IRP)) calloc(mat->M+1,sizeof(*(mat->IRP))))){ //0set only for 0th
         ERRPRINT("IRP calloc err\n");
         freeSpmatInternal(mat);
         return EXIT_FAILURE;
@@ -101,7 +100,7 @@ inline int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat){
 inline spmat* allocSpMatrix(ulong rows, ulong cols){
 
     spmat* mat;
-    if (!(mat = calloc(1,sizeof(*mat)))) { 
+    if (!(mat = (typeof(mat)) calloc(1,sizeof(*mat)))) { 
         ERRPRINT("mat  calloc failed\n");
         return NULL;
     }

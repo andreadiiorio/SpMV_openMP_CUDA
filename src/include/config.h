@@ -5,8 +5,13 @@ typedef struct{
     ushort gridRows;
     ushort gridCols;
     //TODO FULL CONFIG DOCCED HERE
-    uint threadNum;  //thread num to use in an OMP parallel region ...
-    void* chunkDistrbFunc;  //CHUNKS_DISTR_INTERF func pntr
+    uint   threadNum;  //thread num to use in an OMP parallel region ...
+    void*  chunkDistrbFunc;  //CHUNKS_DISTR_INTERF func pntr
+	#ifdef __CUDACC__
+	dim3   gridSize;
+	dim3   blockSize;
+	size_t sharedMemSize;
+	#endif
 } CONFIG;  
 ///Smart controls
 #define FALSE                       ( 0 )
@@ -47,6 +52,7 @@ typedef struct{
 //#define DOUBLE_VECT_DIFF_EARLY_EXIT 1
 //#define RNDVECTMIN          222222
 #define VECTOR_STEP_REALLOC 25
+#define VECTOR_READ_BLOCK	50		//file (raw) vector read block
 #define RNDVECTORSIZE       100000
 #define RNDVECTORDUMP       TMPDIR  "rndVectorDump"
 #define RNDVECTORDUMPRAW    TMPDIR  "rndVectorDumpRaw"

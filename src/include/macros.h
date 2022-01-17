@@ -19,9 +19,15 @@
     ( (i) * (div) + MIN( (i),(rem) ) )
 
 #define STATIC_ARR_ELEMENTS_N(arr)  (sizeof( (arr) ) / (sizeof(*(arr))))  
-///utilsPREP
+///STR UTILS
 #define _STRIFY(x)  #x
 #define STRIFY(x)   _STRIFY(x)
+#define strEqual(s0,s1)	!(strncmp( (s0) , (s1) , strlen( (s1) )))	
+	//convention of putting the target->template as s1
+
+#include <stdlib.h>
+#include <stdio.h>
+
 ////PRINTS
 #define CHIGHLIGHT                  "\33[1m\33[92m"
 #define CCC                         CHIGHLIGHT

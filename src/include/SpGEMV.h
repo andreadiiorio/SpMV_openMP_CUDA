@@ -5,20 +5,45 @@
 #include "macros.h"
 #include "sparseMatrix.h"
 
-#define _ROWS            "ROWS"            
-#define _SORTED_ROWS     "SORTED_ROWS"     
-#define _TILES           "TILES"           
-  
+///COMPUTE MODES
+#define CSR_SORTED_ROWS     "SORTED_ROWS"   ///TODO PARTITIONING ADD? 
+#define CSR_ROWS            "CSR_ROWS"            
+#define CSR_ROWS_GROUPS     "CSR_ROWS_GROUPS"
+#define CSR_TILES           "CSR_TILES"           
+#define CSR_TILES_ALLOCD    "CSR_TILES_ALLOCD"
+
+#define ELL_ROWS			"ELL_ROWS"
+#define ELL_ROWS_GROUPS		"ELL_ROWS_GROUPS"
+#define ELL_TILES			"ELL_TILES"
+
+#define CUDA_CSR_ROWS		"CUDA_CSR_ROWS"
+#define CUDA_CSR_ROWS_WARP	"CUDA_CSR_ROWS_WARP"
+#define CUDA_ELL_ROWS		"CUDA_ELL_ROWS"
+#define CUDA_ELL_ROWS_WARP	"CUDA_ELL_ROWS_WARP"
+#define CUDA_ELL_ROWS_WARP_NT	"CUDA_ELL_ROWS_WARP_NN_TRANSPOSED"
 typedef enum {   
-    ROWS,        
-    SORTED_ROWS, 
-    TILES        
+	//OMP MODES
+	_CSR_SORTED_ROWS,
+	_CSR_ROWS,
+	_CSR_ROWS_GROUPS,
+	_CSR_TILES,
+	_CSR_TILES_ALLOCD,
+	//ELL MODES
+	_ELL_ROWS,
+	_ELL_ROWS_GROUPS,
+	_ELL_TILES,
+	//CUDA MODES
+	_CUDA_CSR_ROWS,
+	_CUDA_CSR_ROWS_WARP,
+	_CUDA_ELL_ROWS,
+	_CUDA_ELL_ROWS_WARP,
+	_CUDA_ELL_ROWS_WARP_NT,
 } COMPUTE_MODE;  
 
 #include "config.h"
 //Sparse parallel Matrix-Vector computation @mat,@inVector,@config,@outVect
-typedef int (SPGEMV)         (spmat*,double*,CONFIG*,double*);
-typedef int (*SPGEMV_INTERF) (spmat*,double*,CONFIG*,double*);
+typedef int (SPGEMV)         		(spmat*,double*,CONFIG*,double*);
+typedef int (*SPGEMV_INTERF) 		(spmat*,double*,CONFIG*,double*);
 
 ////////////////////////////////////// CSR /////////////////////////////////////
 /*
@@ -72,6 +97,20 @@ SPGEMV spgemvTilesELL;
 //serial implementaion of sparse GEMV for DEBUG
 SPGEMV sgemvSerial;
 
+#ifdef __CUDACC__
+typedef void (SPGEMV_CUDA)   		(spmat*,double*,CONFIG,double*);
+typedef void (*SPGEMV_CUDA_INTERF)	(spmat*,double*,CONFIG,double*);
+
+//__global__ void cudaSpMVRowsCSR(spmat* m,double* v,CONFIG cfg,double* outV);
+__global__ SPGEMV_CUDA cudaSpMVRowsCSR;
+__global__ SPGEMV_CUDA cudaSpMVWarpPerRowCSR;
+__global__ SPGEMV_CUDA cudaSpMVRowsELL;
+__global__ SPGEMV_CUDA cudaSpMVWarpPerRowELL;
+__global__ SPGEMV_CUDA cudaSpMVWarpPerRowELLNTrasposed;
+
+///threading sizeing
+#define BLOCKS_1D	( 1u << 10 )
+#endif
 //wrap implementation func pointers for tests
 static const SPGEMV_INTERF  SpgemvCSRFuncs[] = {
     &sgemvSerial,

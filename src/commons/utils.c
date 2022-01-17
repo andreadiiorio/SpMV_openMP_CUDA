@@ -94,6 +94,25 @@ int createNewFile(char* const outFpath){
     if (outFd<0)            perror("open outFd failed ");
     return outFd;
 }
+///BUFFERED IO 
+int fread_wrap(FILE* fp,void* dst,size_t count){
+	size_t rd;
+	size_t readed=0,toRead;
+	while (readed < count){
+		toRead = count - readed;
+		rd=fread(dst+readed,1,toRead,fp);
+		if (rd != toRead){ //TODO SHORT ITEM COUNT
+			if (feof(fp))	return EOF;
+			else if (ferror(fp)){
+				ERRPRINT("fread_wrap errd\n");
+				return -2;
+			}
+			//else ERRPRINT("W** SHORT ITEM COUNT RETURN MEANS!?"); //TODO OO
+		}
+		readed+=rd;
+	}
+	return rd;
+}
 ///STRUCTURED DATA IO
 int writeDoubleVector(char* fpath,double* v,ulong size){
     int fd,out=EXIT_FAILURE;
@@ -131,6 +150,63 @@ int writeDoubleVectorAsStr(char* fpath,double* v,ulong size){
 }
 
 double* readDoubleVector(char* fpath,ulong* size){
+    int rd,hleft;
+    double *out,*tmp;
+    ulong i=0,vectorSize=RNDVECTORSIZE;
+    if (*size)   vectorSize = *size;
+    FILE* fp = fopen(fpath,"r");
+    if (!fp){
+        perror("fopen vector file");
+        return NULL;
+    }
+    if (!(out = malloc(vectorSize * sizeof(*out)))){ 
+        ERRPRINT("vector read malloc fail for file\n");
+        return NULL;
+    }
+    while (1){
+        if (i >= vectorSize ){ //realloc the array
+            vectorSize *= VECTOR_STEP_REALLOC;
+            if (!(tmp=realloc(out,vectorSize*sizeof(*out)))){
+                ERRPRINTS("realloc errd to ~~ %lu MB\n",vectorSize >> 20);
+                goto _err;
+            }
+            out = tmp;
+            DEBUG   printf("reallocd to ~~ %lu MB\n",vectorSize >> 20);
+        }
+		if((rd = fread_wrap(fp,out + i,sizeof(*out)*VECTOR_READ_BLOCK)) == -2){
+			ERRPRINT("fread_wrap errd\n");
+			goto _err;
+		}
+		if(rd == EOF)	
+			break;
+		i += rd/sizeof(out);
+		if( (hleft = rd % sizeof(out)) ){
+			DEBUG hprintf("half left double read... rounding down fptr\n");
+			if(fseek(fp,-hleft,SEEK_CUR)){
+				perror("fseek in readDoubleVector");
+				goto _err;
+			}
+		}
+	}
+    //REALLOC THE ARRAY TO THE FINAL SIZE
+    assert( i > 0 );
+    if (!(tmp = realloc(out,*size*sizeof(*out)))){
+        ERRPRINT("realloc errd\n");
+        goto _err;
+    }
+    out = tmp;
+    DEBUG printf("readed vector from %s of %lu elements\n",fpath,*size);
+    goto _free;
+
+    _err:
+    free(out);
+    out = NULL;
+    _free:
+    if (fclose(fp) == EOF)  perror("fclose errd\n");
+    return out;
+}
+
+double* readDoubleVectorStr(char* fpath,ulong* size){
     int fscanfOut;
     double *out,*tmp;
     ulong i=0,vectorSize=RNDVECTORSIZE;
@@ -162,6 +238,7 @@ double* readDoubleVector(char* fpath,ulong* size){
         if ( fscanfOut != 1 || fscanfOut == EOF )   break;  //end of vector
     }
     //REALLOC THE ARRAY TO THE FINAL SIZE
+    assert( i > 0 );
     *size = --i;
     if (!(tmp = realloc(out,*size*sizeof(*out)))){
         ERRPRINT("realloc errd\n");

@@ -4,9 +4,16 @@
 #include <string.h>
 #include <errno.h>
 
-#include "macros.h"
 #include "sparseMatrix.h"
+#include "macros.h"
 #include "utils.h"
+
+///inline export here 
+//SPMV_CHUNKS_DISTR spmvChunksFair; 
+spmat* allocSpMatrix(ulong rows, ulong cols);
+int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
+void freeSpmatInternal(spmat* mat);
+void freeSpmat(spmat* mat);
 
 ////////////////////////  CSR SPECIFIC -- TODO RENAME //////////////////
 ///SPARSE MATRIX PARTITIONING
@@ -168,13 +175,6 @@ void print3SPGEMMCore(spmat* R,spmat* AC,spmat* P,CONFIG* conf){
 
 ///unit test embbeded
 #ifdef SPARSEUTILS_MAIN_TEST
-
-///inline export here 
-//SPMV_CHUNKS_DISTR spmvChunksFair; 
-spmat* allocSpMatrix(ulong rows, ulong cols);
-int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
-void freeSpmatInternal(spmat* mat);
-void freeSpmat(spmat* mat);
 
 ////INTERNAL TEST FUNCTIONS
 //test that each row's partition from colsOffsetsPartitioningUnifRanges is in the correct index range
