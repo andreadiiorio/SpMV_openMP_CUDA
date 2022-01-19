@@ -135,7 +135,7 @@ int writeDoubleVectorAsStr(char* fpath,double* v,ulong size){
         return EXIT_FAILURE;
     }
     for (ulong i=0; i<size; i++){
-        if (fprintf(fp,"%lf\n",v[i]) < 0){
+        if (fprintf(fp,DOUBLE_STR_FORMAT,v[i]) < 0){
             ERRPRINT("fprintf to out vector file errd\n");
             goto _end;
         } 
@@ -230,7 +230,7 @@ double* readDoubleVectorStr(char* fpath,ulong* size){
             out = tmp;
             DEBUG   printf("reallocd to ~~ %lu MB\n",vectorSize >> 20);
         }
-        fscanfOut = fscanf(fp,"%lf\n",out + i++ );
+        fscanfOut = fscanf(fp,DOUBLE_STR_FORMAT,out + i++ );
         if ( fscanfOut == EOF && ferror(fp)){
             perror("invalid fscanf");
             goto _err;

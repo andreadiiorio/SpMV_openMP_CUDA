@@ -123,6 +123,48 @@ spmat* colsPartitioningUnifRanges(spmat* A,ulong gridCols){
     if(colPartsLens)    free(colPartsLens);
     return NULL;
 }
+
+////////////////////////	ELL AUX FUNCS //////////////////////////////
+spmat* ellTranspose(spmat* m){
+	//alloc components
+	spmat* out = calloc(1,sizeof(*out));
+	if (!out){
+		ERRPRINT("ellTranspose: out callc errd\n");
+		return NULL;
+	}
+	if (!(out->AS = malloc(sizeof(*(out->AS)) * m->M*m->MAX_ROW_NZ))){
+		ERRPRINT("ellTranspose: invalid malloc AS\n");
+		goto _err;
+	}
+	if (!(out->JA = malloc(sizeof(*(out->JA)) * m->M*m->MAX_ROW_NZ))){
+		ERRPRINT("ellTranspose: invalid malloc JA\n");
+		goto _err;
+	}
+	#ifdef ROWLENS
+	if (!(out->RL = malloc(sizeof(*(out->RL)) * m->M))){
+		ERRPRINT("ellTranspose: invalid malloc RL\n");
+		goto _err;
+	}
+	memcpy(out->RL,m->RL,sizeof(*(out->RL)) * m->M);
+	#endif
+	//init
+	out -> NZ = m->NZ;
+	out -> M  = m->MAX_ROW_NZ;
+	out -> N  = m->M;
+	out -> MAX_ROW_NZ = m->M;
+	//transposed copy
+	for(ulong r=0; r<m->M; r++){
+		for(ulong c=0; c<m->MAX_ROW_NZ; c++){
+			out->JA[ IDX2D(c,r,m->M) ] = m->JA[ IDX2D(r,c,m->MAX_ROW_NZ) ];
+			out->AS[ IDX2D(c,r,m->M) ] = m->AS[ IDX2D(r,c,m->MAX_ROW_NZ) ];
+		}
+	}
+	return out;
+	
+	_err:
+	freeSpmat(out);
+	return NULL;
+}
 ////////////////////////////////////////////////////////////////////////
 int spmatDiff(spmat* A, spmat* B){
     if (A->NZ != B->NZ){

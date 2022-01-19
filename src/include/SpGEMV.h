@@ -109,7 +109,8 @@ __global__ SPGEMV_CUDA cudaSpMVWarpPerRowELL;
 __global__ SPGEMV_CUDA cudaSpMVWarpPerRowELLNTrasposed;
 
 ///threading sizeing
-#define BLOCKS_1D	( 1u << 10 )
+#define BLOCKS_1D			( 1u << 8 )
+#define BLOCKS_2D_WARP_R	( 1u << (10-5) )
 #endif
 //wrap implementation func pointers for tests
 static const SPGEMV_INTERF  SpgemvCSRFuncs[] = {

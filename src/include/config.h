@@ -19,14 +19,17 @@ typedef struct{
 ///AUDIT&CHECKS
 //debug checks and tmp stuff
 #ifndef DEBUG 
+	#pragma message("DEBUG MACROS ENABLED")
     #define DEBUG                       if( TRUE )
 #endif
 //long prints
 #ifndef DEBUGPRINT
+	#pragma message("DEBUGPRINT MACROS ENABLED !!!")
     #define DEBUGPRINT                  if( FALSE )
 #endif
 //heavy impact debug checks
 #ifndef DEBUGCHECKS
+	#pragma message("DEBUGCHECKS MACROS ENABLED !!!")
     #define DEBUGCHECKS                 if( FALSE )
 #endif
 //extra print in the normal output

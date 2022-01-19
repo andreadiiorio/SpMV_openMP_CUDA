@@ -25,6 +25,7 @@ int write_wrap(int fd,void* src,size_t count);
 //create or open file at @outFpath for write
 int createNewFile(char* const outFpath);
 ///STRUCTURED DATA IO
+#define DOUBLE_STR_FORMAT	"%.25le\n"
 //write double vector @v as row sequence of double at @fpath
 //e.g. read with od -tf8 -w8 fpath : OCTALOFFSET:   DOUBLE FULL DIGITS
 int writeDoubleVector(char* fpath,double* v,ulong size);

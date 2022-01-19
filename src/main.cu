@@ -46,7 +46,7 @@ CONFIG Conf = {
 #define RNDVECT "RNDVECT"
 #define COMPUTE_MODES_OMP  "\n\tOMP:\t"CSR_ROWS","CSR_ROWS_GROUPS","CSR_TILES","CSR_TILES_ALLOCD\
 	","ELL_ROWS","ELL_ROWS_GROUPS","ELL_TILES
-#define COMPUTE_MODES_CUDA "\n\tCUDA:\t"CUDA_CSR_ROWS","CUDA_CSR_ROWS_WARP","CUDA_ELL_ROWS","CUDA_ELL_ROWS_WARP","CUDA_ELL_ROWS_WARP_NT
+#define COMPUTE_MODES_CUDA "\n\tCUDA:\t"CUDA_CSR_ROWS","CUDA_CSR_ROWS_WARP","CUDA_ELL_ROWS","CUDA_ELL_ROWS_WARP_NT
 #define HELP "usage: MatrixMarket_sparse_matrix_COO, vectorFile || "RNDVECT", [COMPUTE MODE:"\
 	COMPUTE_MODES_OMP COMPUTE_MODES_CUDA
 
@@ -59,6 +59,7 @@ int main(int argc, char** argv){
     ulong vectSize;
     spmat* mat = NULL; 
 	SPGEMV_INTERF 	   func			 = NULL;
+	int toCSR = 1;	//select a CSR method
 	#ifdef __CUDACC__ 
     SPGEMV_CUDA_INTERF funcCuda		 = NULL;
 	double* dVect = NULL;
@@ -100,7 +101,7 @@ int main(int argc, char** argv){
         else if ( strEqual(cm,CUDA_ELL_ROWS_WARP) )	 cmode = _CUDA_ELL_ROWS_WARP;
         else if ( strEqual(cm,CUDA_ELL_ROWS_WARP_NT))cmode = _CUDA_ELL_ROWS_WARP_NT;
 		
-		else{ ERRPRINT("INVALID COMPUTE_MODE ARGV[3] GIVEN\n");exit(1); }
+		else{ ERRPRINT("INVALID COMPUTE_MODE ARGV[3] GIVEN\n" HELP);exit(1); }
     }
    
     switch (cmode){
@@ -108,25 +109,30 @@ int main(int argc, char** argv){
 		case _CSR_TILES:		func = &spgemvTilesCSR;					break;
 		case _CSR_TILES_ALLOCD:	func = &spgemvTilesAllocdCSR;			break;
 		case _CSR_ROWS:			func = &spgemvRowsBasicCSR;				break;
-		case _ELL_ROWS:			func = &spgemvRowsBasicELL;				break;
-		case _ELL_ROWS_GROUPS:	func = &spgemvRowsBlocksELL;			break;
-		case _ELL_TILES:		func = &spgemvTilesELL;					break;
+		case _ELL_ROWS:			func = &spgemvRowsBasicELL; toCSR=0;	break;
+		case _ELL_ROWS_GROUPS:	func = &spgemvRowsBlocksELL;toCSR=0;	break;
+		case _ELL_TILES:		func = &spgemvTilesELL;		toCSR=0;	break;
 		#ifdef __CUDACC__		///CUDA IMPLEMENTATIONS
 		case _CUDA_CSR_ROWS:		funcCuda = &cudaSpMVRowsCSR;		break;
+		case _CUDA_ELL_ROWS:		funcCuda = &cudaSpMVRowsELL;toCSR=0;break;
 		case _CUDA_CSR_ROWS_WARP:	funcCuda = &cudaSpMVWarpPerRowCSR;	break;
-		case _CUDA_ELL_ROWS:		funcCuda = &cudaSpMVRowsELL;	 	break;
-		case _CUDA_ELL_ROWS_WARP:	funcCuda = &cudaSpMVWarpPerRowELL; 	break;
-		case _CUDA_ELL_ROWS_WARP_NT:funcCuda = &cudaSpMVWarpPerRowELLNTrasposed; break;
+		case _CUDA_ELL_ROWS_WARP_NT:funcCuda = &cudaSpMVWarpPerRowELLNTrasposed;toCSR=0;break;
+		//case _CUDA_ELL_ROWS_WARP:	funcCuda = &cudaSpMVWarpPerRowELL;toCSR=0; 	break;
 		#endif
 		//TODO ERR ON NOT SUPPORTED OMP MODES ? 
     }
     ////parse sparse matrix and dense vector
-    char* trgtMatrix = TMP_EXTRACTED_MARTIX;
-    if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatrix = argv[1];
-    if (!(mat = MMtoCSR(trgtMatrix))){
-        ERRPRINT("err during conversion MM -> CSR\n");
+    char* trgtMatPath = TMP_EXTRACTED_MARTIX;
+    if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatPath = argv[1];
+    if ( (toCSR && !(mat = MMtoCSR(trgtMatPath))) ){
+        ERRPRINT("err during parsing MatrixMarket -> CSR\n");
         return out;
-    }
+    } else if ( !toCSR ){ //ELL
+		if( !(mat = MMtoELL(trgtMatPath)) ){
+        	ERRPRINT("err during parsing MatrixMarket -> ELL\n");
+        	return out;
+		}
+	}
     ////get the vector
     vectSize = mat->N;
     if (!(strncmp(argv[2],RNDVECT,strlen(RNDVECT)))){ //generate a random vector
@@ -169,39 +175,53 @@ int main(int argc, char** argv){
     //// PARALLEL COMPUTATION
 	#ifdef __CUDACC__ 
 	if( funcCuda ){		///CUDA IMPLEMENTATION
-		Conf.sharedMemSize	= 		sizeof(*dOutV) * mat->M;
-		Conf.blockSize		= 		dim3( BLOCKS_1D );
-		Conf.gridSize 		= 		dim3( INT_DIV_CEIL(mat->N,BLOCKS_1D) );
-		//if((out = cudaErr(cudaMemcpy(&ConfD,&Conf,sizeof(Conf),dirUp),"dConfUp")))			goto _free;
-
-		size_t pitchAS,pitchJA;
 		///copy the spMat on the device
 		if(cudaErr( cudaMalloc(&dMat,sizeof(*dMat)),"dMat"))			goto _free;
 		if(cudaErr( cudaMalloc(&dVect,sizeof(*dVect)*mat->N),"dVect"))	goto _free;
 		if(cudaErr( cudaMalloc(&dOutV,sizeof(*dOutV)*mat->M),"dOutV"))	goto _free;
 		if((out = cudaErr(cudaMemcpy(dVect,vector,sizeof(*dVect)*mat->N,dirUp),"dVectUp")))
 			goto _free;
+		ulong rowsComputeNum = mat->M;
 		//CSR IMPLEMENTATIONs
 		if(cmode <= _CUDA_CSR_ROWS_WARP){
 			if(spMatCpyCSR(mat,dMat))									goto _free;
 		}
 		//ELL IMPLEMENATIONS
-		else 
-			if(spMatCpyELL(mat,dMat,&pitchJA,&pitchAS))					goto _free;
+		else{
+			spmat* ellMat = mat;
+			if(cmode < _CUDA_ELL_ROWS_WARP_NT){	//ELL impl. coalesced by transposing
+				if (!(ellMat = ellTranspose(mat)))						goto _free;
+			}
+			if(spMatCpyELL(ellMat,dMat))								goto _free;
+			if( mat != ellMat )	freeSpmat(ellMat);	//ELL impl. coalesced ...  Trsp free 
+		}
 		//get a copy of the internal mat for later free		
 		if(cudaErr(cudaMemcpy(&dMatCopy,dMat,sizeof(*dMat),dirDown),"dMatCopy"))
 			goto _free;
 
+		//Conf.sharedMemSize= 		sizeof(*dOutV) * mat->M;
+		//2D - BLOCKING->GRID 	~	 WARPIZED VERSION
+		//switch(cmode){	case _CUDA_ELL_ROWS 
+		Conf.blockSize	= 	dim3( WARPSIZE, BLOCKS_2D_WARP_R );
+		Conf.gridSize	= 	dim3( INT_DIV_CEIL(mat->M,BLOCKS_2D_WARP_R) );
+		if (cmode == _CUDA_CSR_ROWS || cmode == _CUDA_ELL_ROWS){ // NN warp methods -> 1D blocks/grid
+			Conf.blockSize		= 		dim3( BLOCKS_1D );
+			Conf.gridSize 		= 		dim3( INT_DIV_CEIL(rowsComputeNum,BLOCKS_1D) );
+		}
+		//if((out = cudaErr(cudaMemcpy(&ConfD,&Conf,sizeof(Conf),dirUp),"dConfUp")))			goto _free;
+
 		StopWatchInterface* timer = 0; sdkCreateTimer(&timer);
 		timer->start();
-		//DEBUG hprintsf("inVectSize=%uKB\n",mat->M*sizeof(*vector) >> 10);
-		//cudaSpMVRowsCSR<<<55,55,555>>>(dMat,dVect,Conf,dOutV);
+		//DEBUG hprintsf("inVectSize-shMem=%uKB\n",mat->M*sizeof(*vector) >> 10);
 		//funcCuda<<<Conf.gridSize,Conf.blockSize,48<<10-1>>>(dMat,dVect,Conf,dOutV);
 		funcCuda<<<Conf.gridSize,Conf.blockSize>>>(dMat,dVect,Conf,dOutV);
-		if((out = cudaErr(cudaPeekAtLastError(),"kernelLaunchErrd")))			goto _free;
-		//if(( cudaPeekAtLastError() );	//launch errors
-		if((out = cudaErr(cudaDeviceSynchronize(),"cudaDeviceSynchronize")))	goto _free;
+		DEBUG{ 
+			if( cudaPeekAtLastError() )	ERRPRINT("kernelLaunchErrd\n");
+			if((out = cudaErr(cudaPeekAtLastError(),"kernelLaunchErrd")))	goto _free;
+		}
+		cudaError_t dSyncOut = cudaDeviceSynchronize();
 		timer->stop();
+		if((out = cudaErr(dSyncOut,"cudaDeviceSynchronize")))	goto _free;
 		Elapsed = ElapsedInternal = elapsed = timer->getTime();
 		timer->reset();
 

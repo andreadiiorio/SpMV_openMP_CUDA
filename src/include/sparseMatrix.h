@@ -13,10 +13,14 @@ typedef struct{
     ulong* RL;   //row lengths
 #endif
     ulong* IRP;
-    //CUDA SPECIFIC
+	//ELL SPECIFIC
     ulong MAX_ROW_NZ;
 
     double *AS; 
+	#ifdef __CUDACC__	//CUDA SPECIFIC
+	size_t pitchJA;
+	size_t pitchAS;
+	#endif
 } spmat; //describe a sparse matrix
 
 ////Sparse vector accumulator -- corresponding to a matrix portion
@@ -126,6 +130,8 @@ ulong* colsOffsetsPartitioningUnifRanges(spmat* A,ulong gridCols);
  * subdivide @A columns in uniform cols ranges in the output 
  */
 spmat* colsPartitioningUnifRanges(spmat* A,ulong gridCols);
+////////////////////////	ELL AUX FUNCS //////////////////////////////
+spmat* ellTranspose(spmat* m);
 ///////////////////////////////////////////////////////////////////////////////
 
 /*  
