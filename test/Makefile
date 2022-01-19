@@ -1,12 +1,11 @@
 CC=gcc
 FF=gfortran
-CFLAGS=-Wall -Wextra -O2 
-#libs
-CFLAGS+=-lm -fopenmp
+CWALL=-Wall -Wextra -O2 
+CLIBS=-lm -fopenmp
 #TODO extra to reduce useless warnings
-CFLAGS+=-Wno-pointer-sign -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-switch
-CFLAGS+=-Wno-unused-label #-Wno-unused-function
-CFLAGS+=$(RUNTIME)
+CWALL+=-Wno-pointer-sign -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-switch
+CWALL+=-Wno-unused-label #-Wno-unused-function
+CFLAGS=$(CWALL) $(CLIBS) $(RUNTIME) -x c
 
 #SYSTEM CONFIGURATION
 UNAME=$(shell uname -a | tr -c -d \[:alnum:\] | tr \[:lower:\] \[:upper:\] ) #upper uname-a
@@ -23,8 +22,11 @@ DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROS
 #bind to source original project
 srcDir=$(realpath ../src)
 srcInclDir=$(realpath ../src/include)
-coreSrcs:=$(srcDir)/SpGEMV_*_OMP.c $(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
-testSrcs:=SpGEMV_test.c  $(coreSrcs)
+coreSrcs:=$(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
+ompCoreSrcs:=$(srcDir)/SpMV*OMP.c 	$(coreSrcs)
+cudaCoreSrcs:=$(srcDir)/SpMV*CUDA.cu $(coreSrcs)
+testSrcsOmp:=SpMV_test.cu  $(ompCoreSrcs)
+testSrcsCuda:=SpMV_test.cu  $(cudaCoreSrcs)
 
 ##CBLAS BUILD NEEDED
 CBLAS_INCLUDE=CBLAS_LAPACK/include 
@@ -52,24 +54,24 @@ BLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/librefblas.a
 objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
 #FAST TESTS - PERFGATHER
-test_SpGEMV_Stats.o:	$(testSrcs) 
+test_SpMV_OMP_Stats.o:	$(testSrcsOmp) 
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
 
-test_SpGEMV_Stats_NoReductionSIMD.o:	$(testSrcs) 
+test_SpMV_OMP_Stats_NoReductionSIMD.o:	$(testSrcsOmp) 
 	$(CC)  -o $@ $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS)  -DSIMD_ROWS_REDUCTION=FALSE
 
-test_SpGEMV_OMP.o: 	$(testSrcs)
+test_SpMV_OMP.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -UAVG_TIMES_ITERATION  -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" 
 ##DEBUG BUILDS
-test_SpGEMV_DBG.o: 	$(testSrcs)
+test_SpMV_OMP_DBG.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) 
 
-test_SpGEMV_DBG_NoReductionSIMD.o: 	$(testSrcs)
+test_SpMV_OMP_DBG_NoReductionSIMD.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
 	 $(DBG)  -DSIMD_ROWS_REDUCTION=FALSE
 
-test_CBLAS_SpGEMV_OMP.elf: 	$(testSrcs) SpGEMV_CBLAS.c
+test_CBLAS_SpMV_OMP.elf: 	$(testSrcsOmp) SpMV_CBLAS.c
 	mkdir -p /tmp/oldBuilds
 	mv *.o /tmp/oldBuilds
 	#create objectfile not linked
@@ -89,7 +91,7 @@ ompGetICV.o:	$(srcDir)/commons/ompGetICV.c $(srcInclDir)/ompGetICV.h
 
 testAll:
 	$(shell bash ../scripts/testAllMatrixGroups.sh | tee - > log/testAll$GRID_ROWSXGRID_COLS )
-	#$(shell cat ../../data/matrixGroups.list | xargs -L 1 sh -c 'echo $0 ${@};./test_CBLAS_SpGEMV_OMP.elf $0 ${@}' ) #TODO FIX
+	#$(shell cat ../../data/matrixGroups.list | xargs -L 1 sh -c 'echo $0 ${@};./test_CBLAS_SpMV_OMP.elf $0 ${@}' ) #TODO FIX
 
 sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
 	$(CC) -o $@ $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) $(CONSTS) $(MACROS) \

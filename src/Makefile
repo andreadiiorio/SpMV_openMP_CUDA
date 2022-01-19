@@ -39,12 +39,12 @@ NVCCFLAGS		 = $(WALL_CUDA) $(OPTS_CUDA) -Xcompiler -fopenmp
 objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
 
-SpGEMV_OMP.o: $(filter-out %cuda%, main.cu SpGEMV_*_OMP.c  commons/*.c lib/*.c include/*.h)
+SpMV_OMP.o: $(filter-out %cuda%, main.cu SpMV_*_OMP.c  commons/*.c lib/*.c include/*.h)
 	$(CC) -o $@ $(CFLAGS) $(CONSTS) $(MACROS) $(INCLUDE) -x c $(filter-out %.h,$^) $(RUNTIME)
 
 
 INCLUDE 	   += $(INCLUDE_CUDA)
-SpGEMV_CUDA.o: main.cu Sp*.c*  commons/*  include/*.h lib/*.c
+SpMV_CUDA.o: main.cu Sp*.c*  commons/*  include/*.h lib/*.c
 	$(NVCC) -o $@ $(NVCCFLAGS) $(CONSTS) $(MACROS) $(INCLUDE) $(filter-out %.h ,$^) $(RUNTIME)
 
 ##CUize:

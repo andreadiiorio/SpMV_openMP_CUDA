@@ -14,12 +14,14 @@
 //serial dense computation with CBLAS
 double* SGEMVCBLAS(spmat* mat, double* inVect);
 #endif
-///inline export here 
+
+///inline exports
 //SPMV_CHUNKS_DISTR spmvChunksFair; 
-spmat* allocSpMatrix(ulong rows, ulong cols);
-int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
-void freeSpmatInternal(spmat* mat);
-void freeSpmat(spmat* mat);
+//spmat* allocSpMatrix(ulong rows, ulong cols);
+//int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat);
+//void freeSpmatInternal(spmat* mat);
+//void freeSpmat(spmat* mat);
+
 CHUNKS_DISTR    chunksFair,chunksFairFolded,chunksNOOP;
 
 //global vars	->	audit
