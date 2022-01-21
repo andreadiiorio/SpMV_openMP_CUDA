@@ -45,20 +45,27 @@ int spMatCpyELL(spmat* m,spmat* dst){
 	dstLocal.N = m->N;
 	dstLocal.NZ= m->NZ;
 	dstLocal.MAX_ROW_NZ= m->MAX_ROW_NZ;
-	
+	size_t pitchJAB,pitchASB;	//2D allocation rows sizes in bytes
 	ulong nz = m->NZ;
 	ulong maxRow = m->MAX_ROW_NZ;
-	size_t jaSize = sizeof(m->JA), asSize = sizeof(m->AS);
+	//sizes in Bytes
+	size_t jaB = sizeof(m->JA), asB = sizeof(m->AS);
 	//allocs and copies for the ELL fields inside @m
-	if(cudaErr( cudaMallocPitch(&dstLocal.JA,&dstLocal.pitchJA,maxRow*jaSize,m->M*jaSize), errS))		goto err;
-	if(cudaErr( cudaMemcpy2D(dstLocal.JA,dstLocal.pitchJA,m->JA,maxRow,maxRow,m->M,dirUp),errS))		goto err;
+	if(cudaErr( cudaMallocPitch(&dstLocal.JA,&pitchJAB,maxRow*jaB,m->M), errS))						goto err;
+	if(cudaErr( cudaMemcpy2D(dstLocal.JA,pitchJAB,m->JA,maxRow*jaB,maxRow*jaB,m->M,dirUp),errS))	goto err;
 	
-  	if(cudaErr( cudaMallocPitch(&dstLocal.AS,&dstLocal.pitchAS,maxRow*asSize,m->M*asSize), errS))		goto err;
-	if(cudaErr( cudaMemcpy2D(dstLocal.AS,dstLocal.pitchAS,m->AS,maxRow,maxRow,m->M,dirUp), errS))		goto err;
+  	if(cudaErr( cudaMallocPitch(&dstLocal.AS,&pitchASB,maxRow*asB,m->M), errS))						goto err;
+	if(cudaErr( cudaMemcpy2D(dstLocal.AS,pitchASB,m->AS,maxRow*asB,maxRow*asB,m->M,dirUp), errS))	goto err;
 	#ifdef ROWLENS
-	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))						goto err;
-	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))					goto err;
+	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))					goto err;
+	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))				goto err;
 	#endif
+	//set pitches as num of elements
+	dstLocal.pitchJA = pitchJAB / sizeof(*(dstLocal.JA));
+	dstLocal.pitchAS = pitchASB / sizeof(*(dstLocal.AS));
+	DEBUG  	
+		printf("spMatCpyCSR\tcudaMallocPitch:\t\tAS: pitched %u extra elements\tJA: pitched %u extra elements\n",
+			dstLocal.pitchAS - dstLocal.MAX_ROW_NZ,dstLocal.pitchJA - dstLocal.MAX_ROW_NZ);
 	//write dst-copy in destination CUDA mem struct
 	if(cudaErr( cudaMemcpy( dst,&dstLocal,sizeof(dstLocal),dirUp), errS))								goto err;
 	return EXIT_SUCCESS;

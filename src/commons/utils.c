@@ -95,6 +95,7 @@ int createNewFile(char* const outFpath){
     return outFd;
 }
 ///BUFFERED IO 
+//TODO series of 0 returns.... fix
 int fread_wrap(FILE* fp,void* dst,size_t count){
 	size_t rd;
 	size_t readed=0,toRead;
@@ -173,11 +174,12 @@ double* readDoubleVector(char* fpath,ulong* size){
             out = tmp;
             DEBUG   printf("reallocd to ~~ %lu MB\n",vectorSize >> 20);
         }
-		if((rd = fread_wrap(fp,out + i,sizeof(*out)*VECTOR_READ_BLOCK)) == -2){
+		ulong toRead = MIN(VECTOR_READ_BLOCK,(vectorSize-i));
+		if((rd = fread_wrap(fp,out + i,sizeof(*out)*toRead)) == -2){
 			ERRPRINT("fread_wrap errd\n");
 			goto _err;
 		}
-		if(rd == EOF)	
+		if(feof(fp))	//TODO rd == EOF not work always != W*F???
 			break;
 		i += rd/sizeof(out);
 		if( (hleft = rd % sizeof(out)) ){

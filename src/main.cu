@@ -15,7 +15,7 @@
 	#include "cuda_c_gcc_mock.h"
 #endif
 #include "sparseMatrix.h"
-#include "SpGEMV.h"
+#include "SpMV.h"
 #include "ompChunksDivide.h"
 #include "parser.h"
 #include "utils.h"
@@ -58,10 +58,10 @@ int main(int argc, char** argv){
     double *vector = NULL, *outV = NULL, start,end,elapsed;
     ulong vectSize;
     spmat* mat = NULL; 
-	SPGEMV_INTERF 	   func			 = NULL;
+	SPMV_INTERF 	   func			 = NULL;
 	int toCSR = 1;	//select a CSR method
 	#ifdef __CUDACC__ 
-    SPGEMV_CUDA_INTERF funcCuda		 = NULL;
+    SPMV_CUDA_INTERF funcCuda		 = NULL;
 	double* dVect = NULL;
 	double* dOutV = NULL;
 	spmat* dMat   = NULL;
@@ -95,28 +95,28 @@ int main(int argc, char** argv){
         else if ( strEqual(cm,ELL_ROWS_GROUPS) )	 cmode = _ELL_ROWS_GROUPS;
         else if ( strEqual(cm,ELL_TILES) )			 cmode = _ELL_TILES;
 
-        else if ( strEqual(cm,CUDA_CSR_ROWS) )		 cmode = _CUDA_CSR_ROWS;
         else if ( strEqual(cm,CUDA_CSR_ROWS_WARP) )	 cmode = _CUDA_CSR_ROWS_WARP;
-        else if ( strEqual(cm,CUDA_ELL_ROWS) )		 cmode = _CUDA_ELL_ROWS;
-        else if ( strEqual(cm,CUDA_ELL_ROWS_WARP) )	 cmode = _CUDA_ELL_ROWS_WARP;
+        else if ( strEqual(cm,CUDA_CSR_ROWS) )		 cmode = _CUDA_CSR_ROWS;
         else if ( strEqual(cm,CUDA_ELL_ROWS_WARP_NT))cmode = _CUDA_ELL_ROWS_WARP_NT;
+        else if ( strEqual(cm,CUDA_ELL_ROWS_WARP) )	 cmode = _CUDA_ELL_ROWS_WARP;
+        else if ( strEqual(cm,CUDA_ELL_ROWS) )		 cmode = _CUDA_ELL_ROWS;
 		
 		else{ ERRPRINT("INVALID COMPUTE_MODE ARGV[3] GIVEN\n" HELP);exit(1); }
     }
    
     switch (cmode){
-		case _CSR_ROWS_GROUPS:	func = &spgemvRowsBlocksCSR;			break;
-		case _CSR_TILES:		func = &spgemvTilesCSR;					break;
-		case _CSR_TILES_ALLOCD:	func = &spgemvTilesAllocdCSR;			break;
-		case _CSR_ROWS:			func = &spgemvRowsBasicCSR;				break;
-		case _ELL_ROWS:			func = &spgemvRowsBasicELL; toCSR=0;	break;
-		case _ELL_ROWS_GROUPS:	func = &spgemvRowsBlocksELL;toCSR=0;	break;
-		case _ELL_TILES:		func = &spgemvTilesELL;		toCSR=0;	break;
+		case _CSR_ROWS_GROUPS:	func = &spmvRowsBlocksCSR;			break;
+		case _CSR_TILES:		func = &spmvTilesCSR;				break;
+		case _CSR_TILES_ALLOCD:	func = &spmvTilesAllocdCSR;			break;
+		case _CSR_ROWS:			func = &spmvRowsBasicCSR;			break;
+		case _ELL_ROWS:			func = &spmvRowsBasicELL; toCSR=0;	break;
+		case _ELL_ROWS_GROUPS:	func = &spmvRowsBlocksELL;toCSR=0;	break;
+		case _ELL_TILES:		func = &spmvTilesELL;		toCSR=0;	break;
 		#ifdef __CUDACC__		///CUDA IMPLEMENTATIONS
 		case _CUDA_CSR_ROWS:		funcCuda = &cudaSpMVRowsCSR;		break;
 		case _CUDA_ELL_ROWS:		funcCuda = &cudaSpMVRowsELL;toCSR=0;break;
 		case _CUDA_CSR_ROWS_WARP:	funcCuda = &cudaSpMVWarpPerRowCSR;	break;
-		case _CUDA_ELL_ROWS_WARP_NT:funcCuda = &cudaSpMVWarpPerRowELLNTrasposed;toCSR=0;break;
+		case _CUDA_ELL_ROWS_WARP_NT:funcCuda = &cudaSpMVWarpsPerRowELLNTrasposed;toCSR=0;break;
 		//case _CUDA_ELL_ROWS_WARP:	funcCuda = &cudaSpMVWarpPerRowELL;toCSR=0; 	break;
 		#endif
 		//TODO ERR ON NOT SUPPORTED OMP MODES ? 
@@ -258,6 +258,8 @@ int main(int argc, char** argv){
     free(vector);
     free(outV);
 	#ifdef __CUDACC__
+	_free_cuda:
+	assert( !(cudaFree(dVect)));
 	assert( !(cudaFree(dOutV)));
 	assert( !(cudaFreeSpmat(&dMatCopy)));
 	#endif

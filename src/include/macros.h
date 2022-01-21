@@ -22,6 +22,7 @@
 ///STR UTILS
 #define _STRIFY(x)  #x
 #define STRIFY(x)   _STRIFY(x)
+//TODO ADD IN THE COMPARE THE LAST \0 FOR FULL STRING MATCH AND NOT PARTIAL
 #define strEqual(s0,s1)	!(strncmp( (s0) , (s1) , strlen( (s1) )))	
 	//convention of putting the target->template as s1
 

@@ -6,14 +6,14 @@
 #include <string.h>
 #include <omp.h>
 
-#include "SpGEMV.h"
+#include "SpMV.h"
 #include "sparseMatrix.h"
 #include "macros.h"
 #include "utils.h"
 #include "config.h"
 #include "ompChunksDivide.h"
 
-int spgemvRowsBasicELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvRowsBasicELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
 
     double acc;
@@ -49,7 +49,7 @@ int spgemvRowsBasicELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     return out;
 }
 
-int spgemvRowsBlocksELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvRowsBlocksELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc;
@@ -90,7 +90,7 @@ int spgemvRowsBlocksELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     return out;
 }
 
-int spgemvTilesELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvTilesELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;
@@ -100,7 +100,7 @@ int spgemvTilesELL(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     ulong _colBlock = rMax / cfg->gridCols, _colBlockRem = rMax % cfg->gridCols;
     ulong startRow,rowBlock,startCol,colBlock,  rowPartStart,rowPartEnd;
     if (!(tilesOutTmp = malloc(mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
-        ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
+        ERRPRINT("spmvTiles:  tilesOutTmp malloc errd\n");
         goto _free;
     }
     memset(outVect,0,mat->M * sizeof(*outVect));

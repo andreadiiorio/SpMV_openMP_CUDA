@@ -148,15 +148,15 @@ spmat* ellTranspose(spmat* m){
 	memcpy(out->RL,m->RL,sizeof(*(out->RL)) * m->M);
 	#endif
 	//init
-	out -> NZ = m->NZ;
-	out -> M  = m->MAX_ROW_NZ;
-	out -> N  = m->M;
-	out -> MAX_ROW_NZ = m->M;
+	out -> NZ 			= m->NZ;
+	out -> M  			= m->MAX_ROW_NZ;
+	out -> N  			= m->M;
+	out -> MAX_ROW_NZ 	= m->M;
 	//transposed copy
 	for(ulong r=0; r<m->M; r++){
 		for(ulong c=0; c<m->MAX_ROW_NZ; c++){
-			out->JA[ IDX2D(c,r,m->M) ] = m->JA[ IDX2D(r,c,m->MAX_ROW_NZ) ];
-			out->AS[ IDX2D(c,r,m->M) ] = m->AS[ IDX2D(r,c,m->MAX_ROW_NZ) ];
+			out->JA[IDX2D(c,r,out->MAX_ROW_NZ)] = m->JA[IDX2D(r,c,m->MAX_ROW_NZ)];
+			out->AS[IDX2D(c,r,out->MAX_ROW_NZ)] = m->AS[IDX2D(r,c,m->MAX_ROW_NZ)];
 		}
 	}
 	return out;

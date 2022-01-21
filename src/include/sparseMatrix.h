@@ -18,6 +18,7 @@ typedef struct{
 
     double *AS; 
 	#ifdef __CUDACC__	//CUDA SPECIFIC
+	//pitch of ELL* mat allocated as number of element of respective arrays
 	size_t pitchJA;
 	size_t pitchAS;
 	#endif

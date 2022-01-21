@@ -1,5 +1,6 @@
 CC=gcc
 FF=gfortran
+
 CWALL=-Wall -Wextra -O2 
 CLIBS=-lm -fopenmp
 #TODO extra to reduce useless warnings
@@ -14,19 +15,41 @@ TMPDIR=/run/user/$(shell id -u)/
 CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25   #TODO PUT IN /raccolta
 MACROS = -DDEBUGPRINT="if(FALSE)" -DDEBUG="if(FALSE)" -DCONSISTENCY_CHECKS="if(FALSE)" -DVERBOSE="if(FALSE)"  -DDEBUGCHECKS="if(FALSE)" 
 MACROSDBG = -DCONSISTENCY_CHECKS="if(TRUE)"  -DDEBUGCHECKS="if(TRUE)" -DVERBOSE="if(TRUE)" -DDEBUG="if(TRUE)"
+MACROSDBG += -D DOUBLE_VECT_DIFF_EARLY_EXIT
 UNDEF := $(shell echo $(MACROSDBG) | tr " " "\n" | grep -oe '-D.*=' | tr -d "=" |  sed s/-D/-U/ )
 CFLAGSDBG = -ggdb #-Og #-O0	#TODO -O0 cause REDUCTION MISWRITE...FAULTY RESOULT (OR SERIAL ERROR)
 #GATHER ALL DEBUG STUFF IN A VAR
 DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROSDBG)  
 
+#CUDA NVCC
+NVCC 			 = /usr/local/cuda/bin/nvcc	#CPATH
+INCLUDE_CUDA	 = -I/usr/local/cuda/include/ 
+INCLUDE_CUDA	+= -I/opt/cuda/11.2/samples/common/inc/ 
+INCLUDE_CUDA	+= -I/usr/local/cuda/samples/common/inc
+WALL_CUDA		:= --Wreorder --Wext-lambda-captures-this # --Wdefault-stream-launch
+WALL_CUDA		+= --Wno-deprecated-declarations --Wno-deprecated-gpu-targets 
+WALL_CUDA		+= -Xcompiler -Wno-literal-suffix	#TODO not for C files f*!* warning
+#custom host compiler binDir set, TODO gcc11 not yet supported :(
+GCC_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/gcc	#/usr/bin/gcc
+G++_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/g++	#/usr/bin/gcc
+CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
+#CCAPABILITY	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
+OPTS_CUDA		 =  -m64 $(GCC_SET) $(MACROS)	$(CCAPABILITY)
+#SUMMARIZE CUDA OPTs
+NVCCFLAGS		 = $(WALL_CUDA) $(OPTS_CUDA) -Xcompiler -fopenmp $(INCLUDE_CUDA)
+NVCCFLAGSDBG	 = -g -G #export CUDA_DEBUGGER_SOFTWARE_PREEMPTION=1; set cuda api_failures stop
+DBG_CUDA=$(NVCCFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROSDBG)  
+
+
 #bind to source original project
-srcDir=$(realpath ../src)
-srcInclDir=$(realpath ../src/include)
-coreSrcs:=$(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
-ompCoreSrcs:=$(srcDir)/SpMV*OMP.c 	$(coreSrcs)
-cudaCoreSrcs:=$(srcDir)/SpMV*CUDA.cu $(coreSrcs)
-testSrcsOmp:=SpMV_test.cu  $(ompCoreSrcs)
-testSrcsCuda:=SpMV_test.cu  $(cudaCoreSrcs)
+srcDir		=$(realpath ../src)
+srcInclDir	=$(realpath ../src/include)
+coreSrcs	:=$(srcDir)/commons/*.c  $(srcDir)/lib/*.c $(srcInclDir)/*.h 
+ompSrcs		:=$(coreSrcs) $(srcDir)/SpMV*OMP.c
+cudaSrcs	:=$(coreSrcs) $(srcDir)/commons/*.cu $(srcDir)/Sp*.cu
+testSrcsOmp	:=SpMV_test.cu  $(ompSrcs)
+testSrcsCuda:=SpMV_test.cu  $(cudaSrcs)
+testSrcsAll	:=SpMV_test.cu  $(ompSrcs) $(cudaSrcs)
 
 ##CBLAS BUILD NEEDED
 CBLAS_INCLUDE=CBLAS_LAPACK/include 
@@ -50,10 +73,11 @@ else    #FEDORA
 endif
 CBLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/libcblas.a
 BLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/librefblas.a
-
-objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
+ 
+#objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' ) #also .elf
+objs := $(shell  grep -Eo '.*\.o:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
-#FAST TESTS - PERFGATHER
+##FAST TESTS - PERFGATHER
 test_SpMV_OMP_Stats.o:	$(testSrcsOmp) 
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
 
@@ -63,6 +87,16 @@ test_SpMV_OMP_Stats_NoReductionSIMD.o:	$(testSrcsOmp)
 test_SpMV_OMP.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -UAVG_TIMES_ITERATION  -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" 
+##CUDA VERSIONS
+test_SpMV_CUDA_Stats.o:	$(testSrcsAll) 
+	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
+
+test_SpMV_CUDA.o: 	$(testSrcsAll)  
+	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+      -UAVG_TIMES_ITERATION  -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" 
+test_SpMV_CUDA_DBG.o: 	$(testSrcsAll) 
+	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+      $(UNDEF) -DVERBOSE="if(TRUE)" $(DBG_CUDA)
 ##DEBUG BUILDS
 test_SpMV_OMP_DBG.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) 

@@ -6,7 +6,7 @@
 #include <string.h>
 #include <omp.h>
 
-#include "SpGEMV.h"
+#include "SpMV.h"
 #include "sparseMatrix.h"
 #include "macros.h"
 #include "utils.h"
@@ -14,7 +14,7 @@
 #include "ompChunksDivide.h"
 
 
-int spgemvRowsBasicCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvRowsBasicCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
 
     double acc;
@@ -39,13 +39,13 @@ int spgemvRowsBasicCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    DEBUG printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
+    DEBUG printf("spmvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
 }
 
-int spgemvRowsBlocksCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvRowsBlocksCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc;
@@ -75,13 +75,13 @@ int spgemvRowsBlocksCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
         End=omp_get_wtime();
         ElapsedInternal = End-Start;
     }
-    DEBUG printf("spgemvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
+    DEBUG printf("spmvRowsBasic with %lu x %lu- %lu NZ CSR sp.Mat, elapsed %lf\n",
         mat->M,mat->N,mat->NZ,ElapsedInternal);
     out = EXIT_SUCCESS;
     return out;
 }
 
-int spgemvTilesCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvTilesCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;
@@ -93,7 +93,7 @@ int spgemvTilesCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     ulong startRow,rowBlock; //,startCol,colBlock;
     if (!(offsets = colsOffsetsPartitioningUnifRanges(mat,cfg->gridCols))) goto _free;
     if (!(tilesOutTmp = malloc(mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
-        ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
+        ERRPRINT("spmvTiles:  tilesOutTmp malloc errd\n");
         goto _free;
     }
     memset(outVect,0,mat->M * sizeof(*outVect));
@@ -145,7 +145,7 @@ int spgemvTilesCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
 }
 
 
-int spgemvTilesAllocdCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
+int spmvTilesAllocdCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect){
     int out = EXIT_FAILURE;
     
     double acc, *tilesOutTmp=NULL;
@@ -157,7 +157,7 @@ int spgemvTilesAllocdCSR(spmat* mat, double* vect, CONFIG* cfg, double* outVect)
     ulong startRow,rowBlock; //,startCol,colBlock;
     if (!(colParts = colsPartitioningUnifRanges(mat,cfg->gridCols)))   return EXIT_FAILURE;
     if (!(tilesOutTmp = malloc (mat->M * cfg->gridCols * sizeof(*tilesOutTmp)))){
-        ERRPRINT("spgemvTiles:  tilesOutTmp malloc errd\n");
+        ERRPRINT("spmvTiles:  tilesOutTmp malloc errd\n");
         goto _free;
     }
     memset(outVect,0,mat->M * sizeof(*outVect));

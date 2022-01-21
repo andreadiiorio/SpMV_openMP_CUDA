@@ -4,7 +4,7 @@
 #include <omp.h>
 
 #include "sparseMatrix.h"
-#include "SpGEMV.h"
+#include "SpMV.h"
 #include "parser.h"
 #include "utils.h"
 #include "macros.h"

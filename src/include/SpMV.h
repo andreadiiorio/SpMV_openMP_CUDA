@@ -1,5 +1,5 @@
-#ifndef _SPGEMV
-#define _SPGEMV
+#ifndef _SPMV
+#define _SPMV
 
 #include <assert.h>
 #include "macros.h"
@@ -42,34 +42,34 @@ typedef enum {
 
 #include "config.h"
 //Sparse parallel Matrix-Vector computation @mat,@inVector,@config,@outVect
-typedef int (SPGEMV)         		(spmat*,double*,CONFIG*,double*);
-typedef int (*SPGEMV_INTERF) 		(spmat*,double*,CONFIG*,double*);
+typedef int (SPMV)         		(spmat*,double*,CONFIG*,double*);
+typedef int (*SPMV_INTERF) 		(spmat*,double*,CONFIG*,double*);
 
 ////////////////////////////////////// CSR /////////////////////////////////////
 /*
- * basic spgemv with row partitioning, 1 row per thread in consecutive order 
+ * basic spmv with row partitioning, 1 row per thread in consecutive order 
  */
-SPGEMV spgemvRowsBasicCSR;
+SPMV spmvRowsBasicCSR;
 
 /*
- * spgemv with rows partitioning in blocks, consecutive order 
+ * spmv with rows partitioning in blocks, consecutive order 
  */
-SPGEMV spgemvRowsBlocksCSR;
+SPMV spmvRowsBlocksCSR;
 
 /*
- * spgemv via 2D decomposition of matrix @mat with @cfg
+ * spmv via 2D decomposition of matrix @mat with @cfg
  * each tile of the matrix produce a part of the result in a tmp allocated space
  * 2D tiles of @mat are accessed via offsets from an aux allocated matrix map
  * final reduction to sum up all intermediate tiles' results
  */
-SPGEMV spgemvTilesCSR;
+SPMV spmvTilesCSR;
 /*
- * spgemv via 2D decomposition of matrix @mat with @cfg
+ * spmv via 2D decomposition of matrix @mat with @cfg
  * each tile of the matrix produce a part of the result in a tmp allocated space
  * 2D tiles of @mat are accessed via allocated matrixes from column partitions of @mat
  * final reduction to sum up all intermediate tiles' results
  */
-SPGEMV spgemvTilesAllocdCSR;
+SPMV spmvTilesAllocdCSR;
 ////////////////////////////////////// ELL /////////////////////////////////////
 /* Basic ELL: MAX_ROW_NZ,AS,JA ==> no info to skip padding vals in omp (only cancel)
  * Defining ROWLENS -> mat->RL will be added 
@@ -77,52 +77,70 @@ SPGEMV spgemvTilesAllocdCSR;
  */
 
 /*
- * basic spgemv with row partitioning, 1 row per thread in consecutive order 
+ * basic spmv with row partitioning, 1 row per thread in consecutive order 
  */
-SPGEMV spgemvRowsBasicELL;
+SPMV spmvRowsBasicELL;
 
 /*
- * spgemv with rows partitioning in blocks, consecutive order 
+ * spmv with rows partitioning in blocks, consecutive order 
  */
-SPGEMV spgemvRowsBlocksELL;
+SPMV spmvRowsBlocksELL;
 
 /*
- * spgemv via 2D decomposition of matrix @mat with @cfg
+ * spmv via 2D decomposition of matrix @mat with @cfg
  * each tile of the matrix produce a part of the result in a tmp allocated space
  * final reduction to sum up all intermediate tiles' results
  */
-SPGEMV spgemvTilesELL;
+SPMV spmvTilesELL;
 ////////////////////////////////////////////////////////////////////////////////
 
 //serial implementaion of sparse GEMV for DEBUG
-SPGEMV sgemvSerial;
+SPMV sgemvSerial;
 
 #ifdef __CUDACC__
-typedef void (SPGEMV_CUDA)   		(spmat*,double*,CONFIG,double*);
-typedef void (*SPGEMV_CUDA_INTERF)	(spmat*,double*,CONFIG,double*);
+typedef void (SPMV_CUDA)   		(spmat*,double*,CONFIG,double*);
+typedef void (*SPMV_CUDA_INTERF)	(spmat*,double*,CONFIG,double*);
 
 //__global__ void cudaSpMVRowsCSR(spmat* m,double* v,CONFIG cfg,double* outV);
-__global__ SPGEMV_CUDA cudaSpMVRowsCSR;
-__global__ SPGEMV_CUDA cudaSpMVWarpPerRowCSR;
-__global__ SPGEMV_CUDA cudaSpMVRowsELL;
-__global__ SPGEMV_CUDA cudaSpMVWarpPerRowELL;
-__global__ SPGEMV_CUDA cudaSpMVWarpPerRowELLNTrasposed;
+__global__ SPMV_CUDA cudaSpMVRowsCSR;
+__global__ SPMV_CUDA cudaSpMVWarpPerRowCSR;
+__global__ SPMV_CUDA cudaSpMVRowsELL;
+__global__ SPMV_CUDA cudaSpMVRowsELLNNTransposed;
+//__global__ SPMV_CUDA cudaSpMVWarpPerRowELL;
+__global__ SPMV_CUDA cudaSpMVWarpsPerRowELLNTrasposed;
+///func pntrs for auto. tests-perfG.
+static const SPMV_CUDA_INTERF SpmvCUDA_CSRFuncs[] = {
+	&cudaSpMVRowsCSR,
+	&cudaSpMVWarpPerRowCSR  //SpmvCUDA_CSRFuncs_WarpPerRowIdx 
+};
+#define SpmvCUDA_CSRFuncs_WarpPerRowIdx 1
+
+static const SPMV_CUDA_INTERF SpmvCUDA_ELLFuncs[] = {
+	&cudaSpMVRowsELL,
+	&cudaSpMVRowsELLNNTransposed,
+	&cudaSpMVWarpsPerRowELLNTrasposed
+};
+#define SpmvCUDA_ELLFuncs_NN_TraposedImpl 	1 
+#define SpmvCUDA_ELLFuncs_WarpPerRowIdx 	2
 
 ///threading sizeing
 #define BLOCKS_1D			( 1u << 8 )
 #define BLOCKS_2D_WARP_R	( 1u << (10-5) )
-#endif
+#endif //__CUDACC__
+
+
 //wrap implementation func pointers for tests
-static const SPGEMV_INTERF  SpgemvCSRFuncs[] = {
+static const SPMV_INTERF  SpmvCSRFuncs[] = {
     &sgemvSerial,
-    &spgemvRowsBasicCSR,
-    &spgemvRowsBlocksCSR,
-    &spgemvTilesCSR,
-    &spgemvTilesAllocdCSR,
+    &spmvRowsBasicCSR,
+    &spmvRowsBlocksCSR,
+    &spmvTilesCSR,
+    &spmvTilesAllocdCSR,
 };
-static const SPGEMV_INTERF  SpgemvELLFuncs[] = {
-    &spgemvRowsBasicELL,
-    &spgemvRowsBlocksELL,
-    &spgemvTilesELL,
+static const SPMV_INTERF  SpmvELLFuncs[] = {
+    &spmvRowsBasicELL,
+    &spmvRowsBlocksELL,
+    &spmvTilesELL,
 };
+
 #endif

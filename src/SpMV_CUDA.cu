@@ -5,7 +5,7 @@
 
 extern "C" {
 #include "sparseMatrix.h"
-#include "SpGEMV.h"
+#include "SpMV.h"
 }
 #include "cudaUtils.h"
 
@@ -64,17 +64,36 @@ __global__ void cudaSpMVRowsELL(spmat* m,double* v,CONFIG cfg,double* outV){
 	uint tId = threadIdx.x + blockIdx.x*blockDim.x;	//1D block,1D grid
 	if (tId < m->MAX_ROW_NZ){
 		double outEntry = 0;
-		ulong cLen = m->M, eIdx;
+		ulong cLen = m->M;
+		ulong pitchR = m->pitchAS;	//TODO same for JA if same element sizes!
 		//for each:	i=col => transpose => row
-		for(ulong i=0,asIdx,jaIdx;	i<cLen;	i++){
-			asIdx=IDX2D(i,tId,m->pitchAS);
-			jaIdx=IDX2D(i,tId,m->pitchJA); 
+		for(ulong i=0,asIdx=IDX2D(i,tId,m->pitchAS),jaIdx=IDX2D(i,tId,m->pitchJA);
+			i<cLen;	i++,asIdx+=pitchR,jaIdx+=pitchR){
 			outEntry += m->AS[asIdx] * v[m->JA[jaIdx]];
 		}		
 		outV[tId] = outEntry;
 	}
 }
-__global__ void cudaSpMVWarpPerRowELLNTrasposed(spmat* m,double* v,CONFIG cfg,double* outV){
+
+//1thread per m.row -> m^T.col (coalescingUp)
+__global__ void cudaSpMVRowsELLNNTransposed(spmat* m,double* v,CONFIG cfg,double* outV){
+	uint tRow = threadIdx.x + blockIdx.x*blockDim.x;	//1D block,1D grid
+	if (tRow < m->M){
+		double outEntry = 0;
+		ulong rLen;
+		#ifdef ROWLENS
+		rLen = m->RL[tRow];
+		#else
+		rLen = m->MAX_ROW_NZ;
+		#endif
+		for(ulong c=0,asIdx=IDX2D(tRow,c,m->pitchAS),jaIdx=IDX2D(tRow,c,m->pitchJA);
+			c<rLen;	 c++,asIdx++,jaIdx++){
+				outEntry += m->AS[asIdx] * v[m->JA[jaIdx]];
+		}		
+		outV[tRow] = outEntry;
+	}
+}
+__global__ void cudaSpMVWarpsPerRowELLNTrasposed(spmat* m,double* v,CONFIG cfg,double* outV){
 	//1D GRID of 2D BLOCKS: [warpIdx,rowIdx]
 	uint tWarpIdx = threadIdx.x;
 	uint tRow = threadIdx.y + blockIdx.y*blockDim.y;
