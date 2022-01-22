@@ -142,6 +142,8 @@ int main(int argc, char** argv){
     if (extractInTmpFS(argv[1],TMP_EXTRACTED_MARTIX) < 0)   trgtMatrix = argv[1];
     //parse for CSR implementations
     if (!(matCSR = MMtoCSR(trgtMatrix)))	return out;
+    if (!(matELL = MMtoELL(trgtMatrix)))    ERRPRINTS("ELL not feasible for %s:(",argv[1]);
+		//abort later in other (reallocation if needed)
 	mat = matCSR;
     VERBOSE printf("parsed matrix %lu x %lu -- %lu NNZ \n",mat->M,mat->N,mat->NZ);
     vectSize = mat->N;  //size for GEMV
@@ -219,8 +221,9 @@ int main(int argc, char** argv){
         VERBOSE printf("configuration changed from env\n");
     }
     printf("SpMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
-      "sparse matrix: %lux%lu-%luNNZ - grid: %ux%u\n",
-      AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,Conf.gridRows,Conf.gridCols);
+      "sparse matrix: %lux%lu-%luNNZ-%ld=MAX_ROW_NZ - grid: %ux%u\n",
+      AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,matELL?matELL->MAX_ROW_NZ:-1,
+	  Conf.gridRows,Conf.gridCols);
     //extra configuration
     Conf.threadNum = (uint) maxThreads;
     DEBUG   printf("omp_get_max_threads:\t%d\n",maxThreads); 
@@ -314,7 +317,7 @@ int main(int argc, char** argv){
     SPMV_INTERF spmvFunc;
     for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpmvCSRFuncs); f++){
         spmvFunc = SpmvCSRFuncs[f];
-        hprintsf("@computing SpMV   with func:\%u CSR at:%p\t",f,spmvFunc);
+        hprintsf("@computing SpMV   with func:\%u OMP CSR at:%p\t",f,spmvFunc);
         if(testSpMVImpl(spmvFunc,mat,vector,outV,oracleOut))  goto _free;
     }
 	//#ifndef __CUDACC__	//TODO NVCC MESSED AROUND->MOVD useful for later tests
@@ -327,7 +330,7 @@ int main(int argc, char** argv){
 	mat = matELL;
     for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpmvELLFuncs); f++){
         spmvFunc = SpmvELLFuncs[f];
-        hprintsf("@computing SpMV   with func:\%u ELL at:%p\t",f,spmvFunc);
+        hprintsf("@computing SpMV   with func:\%u OMP ELL at:%p\t",f,spmvFunc);
         if(testSpMVImpl(spmvFunc,mat,vector,outV,oracleOut))  goto _free;
     }
 

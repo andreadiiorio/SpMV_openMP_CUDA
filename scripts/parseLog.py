@@ -17,7 +17,7 @@ from collections import namedtuple
 from re import finditer
 from sys import argv,stderr
 
-FIELDS = "source,funcN,timeAvg,timeVar,internalTimeAvg,internalTimeVar,size,NNZ,gridSize,sampleSize"
+FIELDS = "source,funcID,timeAvg,timeVar,internalTimeAvg,internalTimeVar,size,NNZ,maxRowNNZ,OMPgridSize,sampleSize"
 Execution = namedtuple("Execution",FIELDS)
 
 getReGroups=lambda pattern,string:\
@@ -33,25 +33,26 @@ def getReMatchFull(pattern,string):
     except: out=""
     return out
 
-GRID_PATTERN="[0-9]+x[0-9]+"
-SIZE_PATTERN=GRID_PATTERN+"-[0-9]+NNZ"
+GRID_PATTERN="\d+x\d+"
+SIZE_PATTERN=GRID_PATTERN+"-\d+NNZ-\d+=MAX_ROW_NZ"
 FP_PATTERN="[-+]?\d+\.?\d+e[-+]\d+"
 parseSizes=lambda s:  s #[int(x) for x in s.split("x")] #TODO not good CSV PARSED
 
 def parseConfigSize(l):
     size  = parseSizes(getReMatch("sparse matrix:\s*("+SIZE_PATTERN+")",l))
-    matSize,nnz = size.split("-")
+    matSize,nnz,_maxRowNNZ = size.split("-")
+    maxRowNNZ = _maxRowNNZ.split("=")[0]
     gridSize = parseSizes(getReMatch("grid:\s*("+GRID_PATTERN+")",l))
-    sampleSize = getReMatch("AVG_TIMES_ITERATION:\s*(\d)",l)
-    return matSize,nnz,gridSize,sampleSize
+    sampleSize = getReMatch("AVG_TIMES_ITERATION:\s*(\d+)",l)
+    return matSize,nnz,maxRowNNZ,gridSize,sampleSize
 
 def parseComputeTimes(l):
-    funcN   = int(getReMatch("func:\s*(\d)",l))
+    funcID   = getReMatch("func:\s*(\d.*) at",l)
     timeAvg = float(getReMatch("timeAvg:\s*("+FP_PATTERN+")",l))
     timeVar = float(getReMatch("timeVar:\s*("+FP_PATTERN+")",l))
     timeInternalAvg = float(getReMatch("timeInternalAvg:\s*("+FP_PATTERN+")",l))
     timeInternalVar = float(getReMatch("timeInternalVar:\s*("+FP_PATTERN+")",l))
-    return funcN,timeAvg,timeVar,timeInternalAvg,timeInternalVar
+    return funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar
 
 if __name__ == "__main__":
     if "-h" in argv[1] or len(argv)<2:  print(__doc__);exit(1)
@@ -67,11 +68,11 @@ if __name__ == "__main__":
         computes = list(filter(lambda l:"@" in l,g[2:]))
         #parsing
         src = header.replace(" ","_")
-        matSize,nnz,gridSize,sampleSize = parseConfigSize(configSiz)
+        matSize,nnz,maxRowNNZ,gridSize,sampleSize = parseConfigSize(configSiz)
         #preparingTime = float(getReMatch("preparing time:\s*("+FP_PATTERN+")",configSiz))
         for l in computes:
-            funcN,timeAvg,timeVar,timeInternalAvg,timeInternalVar = parseComputeTimes(l)
-            executionTimes.append(Execution(src,funcN,timeAvg,timeVar,timeInternalAvg,timeInternalVar,matSize,nnz,gridSize,sampleSize))
+            funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar = parseComputeTimes(l)
+            executionTimes.append(Execution(src,funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar,matSize,nnz,maxRowNNZ,gridSize,sampleSize))
     
     print(FIELDS)
     for e in executionTimes:    

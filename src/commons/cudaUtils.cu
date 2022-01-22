@@ -64,7 +64,49 @@ int spMatCpyELL(spmat* m,spmat* dst){
 	dstLocal.pitchJA = pitchJAB / sizeof(*(dstLocal.JA));
 	dstLocal.pitchAS = pitchASB / sizeof(*(dstLocal.AS));
 	DEBUG  	
-		printf("spMatCpyCSR\tcudaMallocPitch:\t\tAS: pitched %u extra elements\tJA: pitched %u extra elements\n",
+		printf("spMatCpyELL\tcudaMallocPitch:\t\tAS: pitched %u extra elements\tJA: pitched %u extra elements\n",
+			dstLocal.pitchAS - dstLocal.MAX_ROW_NZ,dstLocal.pitchJA - dstLocal.MAX_ROW_NZ);
+	//write dst-copy in destination CUDA mem struct
+	if(cudaErr( cudaMemcpy( dst,&dstLocal,sizeof(dstLocal),dirUp), errS))								goto err;
+	return EXIT_SUCCESS;
+
+	err:
+	cudaFree(dstLocal.JA);
+	cudaFree(dstLocal.AS);
+	#ifdef ROWLENS
+	cudaFree(dstLocal.RL);
+	#endif
+	return EXIT_FAILURE;
+}
+
+int spMatCpyELLNNPitched(spmat* m,spmat* dst){
+	char* errS = "spMatCpyELLNNPitched";
+	//prepare the dst-copy struct
+	spmat dstLocal;
+	memset(&dstLocal,0,sizeof(dstLocal));
+	dstLocal.M = m->M;
+	dstLocal.N = m->N;
+	dstLocal.NZ= m->NZ;
+	dstLocal.MAX_ROW_NZ= m->MAX_ROW_NZ;
+	ulong nz = m->NZ;
+	ulong maxRow = m->MAX_ROW_NZ;
+	//sizes in Bytes
+	size_t jaB = sizeof(m->JA), asB = sizeof(m->AS);
+	//allocs and copies for the ELL fields inside @m
+	if(cudaErr( cudaMalloc(&dstLocal.JA,maxRow*jaB*m->M), errS))						goto err;
+	if(cudaErr( cudaMemcpy(dstLocal.JA,m->JA,maxRow*jaB*m->M,dirUp),errS))	goto err;
+	
+  	if(cudaErr( cudaMalloc(&dstLocal.AS,maxRow*asB*m->M), errS))						goto err;
+	if(cudaErr( cudaMemcpy(dstLocal.AS,m->AS,maxRow*asB*m->M,dirUp), errS))	goto err;
+	#ifdef ROWLENS
+	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))					goto err;
+	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))				goto err;
+	#endif
+	//set pitches as num of elements
+	dstLocal.pitchJA = dstLocal.MAX_ROW_NZ;
+	dstLocal.pitchAS = dstLocal.MAX_ROW_NZ;
+	DEBUG  	
+		printf("spMatCpyELLNNPitched\tcudaMallocPitch:\t\tAS: pitched %u extra elements\tJA: pitched %u extra elements\n",
 			dstLocal.pitchAS - dstLocal.MAX_ROW_NZ,dstLocal.pitchJA - dstLocal.MAX_ROW_NZ);
 	//write dst-copy in destination CUDA mem struct
 	if(cudaErr( cudaMemcpy( dst,&dstLocal,sizeof(dstLocal),dirUp), errS))								goto err;

@@ -47,6 +47,8 @@ int spMatCpyCSR(spmat* m,spmat* dst);
  * pitches of JA and AS ebbedded in specific fields of *dst
  */
 int spMatCpyELL(spmat* m,spmat* dst);
+//version with the malloc/memcpy with pitching
+int spMatCpyELLNNPitched(spmat* m,spmat* dst);
 
 inline int cudaFreeSpmat(spmat* m){
 	int out = cudaFree(m->AS);
