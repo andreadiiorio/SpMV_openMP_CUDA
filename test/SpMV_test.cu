@@ -345,6 +345,7 @@ int main(int argc, char** argv){
 	_free_cuda:
 	assert( !(cudaFree(dVect)));
 	assert( !(cudaFree(dOutV)));
+	DEBUG cudaErr(cudaDeviceReset(),"cudaDeviceReset");	//cuda-memcheck leak-check full need it 		
     if (matELL_t)     freeSpmat(matELL_t);
 	#endif
     return out;

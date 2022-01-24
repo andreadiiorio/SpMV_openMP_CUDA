@@ -222,8 +222,8 @@ int COOtoELL(entry* entries, spmat* mat, ulong* rowLens){
         ERRPRINT("MMtoELL:\tELL->AS calloc errd\n");
         goto _end;
     } //zero init for auto rows residual fill with 0
-    if (!(mat->JA = malloc(mat->M * maxRow * sizeof(*(mat->JA))))){
-        ERRPRINT("MMtoELL:\tELL->JA malloc errd\n");
+    if (!(mat->JA = calloc(mat->M * maxRow,  sizeof(*(mat->JA))))){
+        ERRPRINT("MMtoELL:\tELL->JA calloc errd\n");
         goto _end;
     }
 
@@ -251,15 +251,18 @@ int COOtoELL(entry* entries, spmat* mat, ulong* rowLens){
          
     }
     ///FILL PAD
-    ulong padded = 0;
+    ulong padded = 0,paddedEntries = mat->M*mat->MAX_ROW_NZ;
     for (ulong r=0; r<mat->M; r++){
         for (ulong c=rowLens[r],j=IDX2D(r,c,maxRow); c<maxRow; c++,j++,padded++){
             //mat->AS[j] = ELL_AS_FILLER; //TODO ALREADY DONE IN CALLOC
-            mat->JA[j] = mat->JA[rowLens[r]-1]; //ELL_JA_FILLER;
+            //mat->JA[j] = mat->JA[rowLens[r]-1]; //ELL_JA_FILLER; //TODO calloc CUDA benefit?
         }
     }
-    VERBOSE 
+    VERBOSE{ 
       printf("padded %lu entries = %lf%% of NZ\n",padded,100*padded/(double) mat->NZ);
+      printf("ELL matrix of: %lu paddedEntries -> %lu MB of JA+AS\n",
+		paddedEntries,(paddedEntries*sizeof(*(mat->JA))+paddedEntries*sizeof(*(mat->AS))) >> 20);
+	}
     out = EXIT_SUCCESS;
     _end:
     if(rowsNextCol)  free(rowsNextCol);
@@ -300,7 +303,10 @@ spmat* MMtoCSR(char* matPath){
     mat->RL = mm->rowLens;
     mm->rowLens = NULL; //avoid free in @freeMatrixMarket
     #endif
-   
+
+	VERBOSE
+	printf("MMtoCSR: %lu NZ entries-> %lu MB of AS+JA+IRP\n",mat->NZ,
+	(mat->NZ*sizeof(*(mat->AS))+mat->NZ*sizeof(*(mat->JA))+(1+mat->M*sizeof(*(mat->IRP))))>>20);
     goto _free;
 
 

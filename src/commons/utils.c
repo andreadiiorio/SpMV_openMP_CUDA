@@ -341,6 +341,7 @@ int fillRndVector(ulong size, double* v){
     return EXIT_SUCCESS;
 }
 
+//convention true result in @a, toCheck in @b
 int doubleVectorsDiff(double* a, double* b, ulong n,double* diffMax){
     int out = EXIT_SUCCESS;
     double diff,diffAbs,_diffMax=0;
@@ -351,8 +352,9 @@ int doubleVectorsDiff(double* a, double* b, ulong n,double* diffMax){
         diffAbs = ABS( diff );
         if( diffAbs > DOUBLE_DIFF_THREASH ){
             out = EXIT_FAILURE;
-            ERRPRINTS("DIFF IN DOUBLE VECTORS: |%13lg| > threash=%lf\tat: %lu\n",
-              diff,DOUBLE_DIFF_THREASH,i);
+            ERRPRINTS("DOUBLE VECTORS DIFF: DOUBLE_DIFF_THREASH=%lf\t<\t"
+					  "|%13lg| = %lf %% of @a[%lu]\n",
+              		  DOUBLE_DIFF_THREASH,diff,100*diffAbs/ABS(a[i]),i);
             #ifdef DOUBLE_VECT_DIFF_EARLY_EXIT
             #pragma message("DOUBLE_VECT_DIFF_EARLY_EXIT: only first diff double reported")
             return EXIT_FAILURE;

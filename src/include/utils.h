@@ -65,6 +65,7 @@ void sortulong(ulong* arr, ulong len);   //sort ulong array @arr of @len element
  * return 0 if vectors a and b has elements that differ at most of DOUBLE_DIFF_THREASH 
  * if diffMax!=NULL save there the max difference value  
  *  of the 2 entries of the input vectors, signed as a[i] - b[i] (as well as dump prints)
+ * CONVENTION:	@a = true result, @b vector to check with the true result 
  */
 int doubleVectorsDiff(double* a, double* b, ulong n,double* diffMax);
 //fill a random vector in @v long @size doubles

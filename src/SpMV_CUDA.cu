@@ -69,7 +69,11 @@ __global__ void cudaSpMVRowsELL(spmat* m,double* v,CONFIG cfg,double* outV){
 		//for each:	i=col => transpose => row
 		for(ulong i=0,asIdx=IDX2D(i,tId,m->pitchAS),jaIdx=IDX2D(i,tId,m->pitchJA);
 			i<cLen;	i++,asIdx+=pitchR,jaIdx+=pitchR){
-			outEntry += m->AS[asIdx] * v[m->JA[jaIdx]];
+			//outEntry += m->AS[asIdx] * v[m->JA[jaIdx]];
+			ulong idx = m->JA[jaIdx];
+			double as = m->AS[asIdx];
+			double vv = v[idx];
+			outEntry += as * vv;
 		}		
 		outV[tId] = outEntry;
 	}

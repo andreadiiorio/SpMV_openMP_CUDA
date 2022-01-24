@@ -159,6 +159,7 @@ spmat* ellTranspose(spmat* m){
 			out->AS[IDX2D(c,r,out->MAX_ROW_NZ)] = m->AS[IDX2D(r,c,m->MAX_ROW_NZ)];
 		}
 	}
+	VERBOSE	printf("Transposed ELL mat at %p in %p\n",m,out);
 	return out;
 	
 	_err:
