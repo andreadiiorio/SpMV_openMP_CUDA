@@ -97,8 +97,8 @@ int createNewFile(char* const outFpath){
 ///BUFFERED IO 
 //TODO series of 0 returns.... fix
 int fread_wrap(FILE* fp,void* dst,size_t count){
-	size_t rd;
-	size_t readed=0,toRead;
+	int rd=0,toRead;
+	size_t readed=0;
 	while (readed < count){
 		toRead = count - readed;
 		rd=fread(dst+readed,1,toRead,fp);

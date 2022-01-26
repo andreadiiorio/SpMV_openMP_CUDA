@@ -23,7 +23,6 @@ DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROS
 
 #CUDA NVCC
 NVCC 			 = /usr/local/cuda/bin/nvcc	#CPATH
-NVCC 			 = nvcc	#TODO SERVER
 INCLUDE_CUDA	 = -I/usr/local/cuda/include/ 
 INCLUDE_CUDA	+= -I/opt/cuda/11.2/samples/common/inc/ 
 INCLUDE_CUDA	+= -I/usr/local/cuda/samples/common/inc
@@ -32,10 +31,17 @@ WALL_CUDA		+= --Wno-deprecated-declarations --Wno-deprecated-gpu-targets
 WALL_CUDA		+= -Xcompiler -Wno-literal-suffix	#TODO not for C files f*!* warning
 #custom host compiler binDir set, TODO gcc11 not yet supported :(
 GCC_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/gcc	#/usr/bin/gcc
-GCC_SET			:= 	#TODO SERVER GCC IS NVCC COMPLIANT
 G++_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/g++	#/usr/bin/gcc
-#CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
-CCAPABILITY	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
+CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
+
+#recognize if on server or on dell: dellLaptop=CUDA-manual GCC installed
+NVCC_AVAIL		:= $(shell which nvcc 2> /dev/null; echo $$?)
+ifeq ($(NVCC_AVAIL),0)	
+	NVCC 			 = nvcc	#TODO SERVER
+	GCC_SET			:= 	#TODO SERVER GCC IS NVCC COMPLIANT
+	CCAPABILITY	 	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
+endif
+
 OPTS_CUDA		 =  -m64 $(GCC_SET) $(MACROS)	$(CCAPABILITY)
 #SUMMARIZE CUDA OPTs
 NVCCFLAGS		 = $(WALL_CUDA) $(OPTS_CUDA) -Xcompiler -fopenmp $(INCLUDE_CUDA) $(RUNTIME)
@@ -79,9 +85,11 @@ BLAS_SLIB=CBLAS_LAPACK/$(STATIC_LIBS_DIR)/librefblas.a
 #objs := $(shell  grep -Eo '.*\..*:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' ) #also .elf
 objs := $(shell  grep -Eo '.*\.o:\s' Makefile | grep -v -e '@' -e PHONY | awk -F: '{print $1}' | tr '\n:' ' ' )
 all: $(objs)
-##FAST TESTS - PERFGATHER
+##OMP 	- FAST TESTS - PERFGATHER
 test_SpMV_OMP_Stats.o:	$(testSrcsOmp) 
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
+test_SpMV_OMP_Stats_DECREASING_T_NUM.o:	$(testSrcsOmp) 
+	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) -DDECREASE_THREAD_NUM 
 
 test_SpMV_OMP_Stats_NoReductionSIMD.o:	$(testSrcsOmp) 
 	$(CC)  -o $@ $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS)  -DSIMD_ROWS_REDUCTION=FALSE
@@ -102,6 +110,8 @@ test_SpMV_CUDA_DBG.o: 	$(testSrcsAll)
 ##DEBUG BUILDS
 test_SpMV_OMP_DBG.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) 
+test_SpMV_OMP_DBG_DECREASING_T_NUM.o: 	$(testSrcsOmp)
+	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) -DDECREASE_THREAD_NUM
 
 test_SpMV_OMP_DBG_NoReductionSIMD.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \

@@ -1,8 +1,13 @@
-#144.mtx
+#SG
 SpMV_OMP_test.c	AVG_TIMES_ITERATION:25	sparse matrix: 144649x144649-2148786NNZ-26=MAX_ROW_NZ - grid: 8x8
 omp sched gather:	kind: OMP_SCHED_DYNAMIC	omp chunkSize: 1	monotonic: N
-[1m[92m@computing SpMV   with func:0 CUDA CSR at:0x40d2ca	[0mtimeAvg:1.908840e-03 timeVar:2.329343e-10	timeInternalAvg:1.908840e-03 timeInternalVar:2.329343e-10 
-[1m[92m@computing SpMV   with func:1 CUDA CSR at:0x40d448	[0mtimeAvg:2.092240e-03 timeVar:8.102423e-12	timeInternalAvg:2.092240e-03 timeInternalVar:8.102423e-12 
-[1m[92m@computing SpMV   with func:0 CUDA ELL at:0x40d448	[0mtimeAvg:2.291864e-02 timeVar:5.386647e-07	timeInternalAvg:2.291864e-02 timeInternalVar:5.386647e-07 
-[1m[92m@computing SpMV   with func:1 CUDA ELL at:0x40d5c6	[0mtimeAvg:4.351116e-02 timeVar:1.961394e-10	timeInternalAvg:4.351116e-02 timeInternalVar:1.961394e-10 
-[1m[92m@computing SpMV   with func:2 CUDA ELL at:0x40d744	[0mtimeAvg:2.000280e-03 timeVar:1.308171e-11	timeInternalAvg:2.000280e-03 timeInternalVar:1.308171e-11 
+[1m[92m@computing SpMV   with func:0 CUDA CSR at:0x40d3ba
+[0mtimeAvg:1.907880e-03 timeVar:2.076256e-10	timeInternalAvg:1.907880e-03 timeInternalVar:2.076256e-10 
+[1m[92m@computing SpMV   with func:1 CUDA CSR at:0x40d538
+[0mtimeAvg:2.101320e-03 timeVar:1.077769e-11	timeInternalAvg:2.101320e-03 timeInternalVar:1.077769e-11 
+[1m[92m@computing SpMV   with func:0 CUDA ELL at:0x40d538
+[0mtimeAvg:2.136264e-02 timeVar:1.958490e-07	timeInternalAvg:2.136264e-02 timeInternalVar:1.958490e-07 
+[1m[92m@computing SpMV   with func:1 CUDA ELL at:0x40d6b6
+[0mtimeAvg:4.185068e-02 timeVar:1.376495e-10	timeInternalAvg:4.185068e-02 timeInternalVar:1.376495e-10 
+[1m[92m@computing SpMV   with func:2 CUDA ELL at:0x40d834
+[0mtimeAvg:1.999040e-03 timeVar:2.075842e-11	timeInternalAvg:1.999040e-03 timeInternalVar:2.075842e-11 

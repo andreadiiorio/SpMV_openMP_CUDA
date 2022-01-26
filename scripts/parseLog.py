@@ -1,24 +1,28 @@
 """
 parse output log over a large set of matrixes groups into a CSV on stdout
-source matrixes lines starts with ##, computing and configuration lines start with @
-expected prefixed lines in this order + template
-##matrix
-@sparse matrix: ROWSXCOLS-nnzNNZ grid: RXC
-@compute ... sparse matrix: ROWSXCOLS-nnzNNZ with func:X timeAvg:XXX timeVar:XXX timeInternalAvg:XXX timeInternalVar:XXX 
-TEMPLATE:
-SpGEMV_OMP_test.c       AVG_TIMES_ITERATION:5, sparse matrix: 144649x144649-2148786NNZ  conf grid: 8x8 
-ompGetAllICV:
-omp sched gather:       kind: 2 - explicitly_NONmonotonic       omp chunkSize: 1
-@computing SpGEMV with sparse matrix: 144649x144649-2148786NNZ  with func:0 at:0x403600      timeAvg:4.227846e-03 timeVar:3.075045e-08       timeInternalAvg:0.000000e+00 timeInternalVar:0.000000e+00 
-...
+main log files structure: 
+#matrixName
+config
+omp runtime config
+@compute func ID ....
+STATS... 
+STATS... 
+STATS... 
+@compute func ID .... 
+where STATS may be more then one for evaluating different amount of parallelism used (OMP set_thread_num )
+see template files in this folder
+
 usage <logFile>
 """
 from collections import namedtuple
 from re import finditer
 from sys import argv,stderr
+import string
 
-FIELDS = "source,funcID,timeAvg,timeVar,internalTimeAvg,internalTimeVar,size,NNZ,maxRowNNZ,OMPgridSize,sampleSize"
-Execution = namedtuple("Execution",FIELDS)
+_FIELDS     = "source,funcID,timeAvg,timeVar,internalTimeAvg,internalTimeVar,size,NNZ,maxRowNNZ,OMPgridSize,sampleSize"
+_FIELDS_OPT = "threadNum"
+FIELDS      = _FIELDS + " " + _FIELDS_OPT
+Execution = namedtuple("Execution",FIELDS,defaults=["0"])
 
 getReGroups=lambda pattern,string:\
     finditer(pattern,string).__next__().groups()
@@ -46,33 +50,47 @@ def parseConfigSize(l):
     sampleSize = getReMatch("AVG_TIMES_ITERATION:\s*(\d+)",l)
     return matSize,nnz,maxRowNNZ,gridSize,sampleSize
 
-def parseComputeTimes(l):
+def parseComputeFuncID(l):
     funcID   = getReMatch("func:\s*(\d.*) at",l)
+    return funcID
+
+def parseComputeTimes(l):
+    try:        threadNum = getReMatch("threadNum:\s*(\d+)",l)
+    except:     threadNum = 0
     timeAvg = float(getReMatch("timeAvg:\s*("+FP_PATTERN+")",l))
     timeVar = float(getReMatch("timeVar:\s*("+FP_PATTERN+")",l))
     timeInternalAvg = float(getReMatch("timeInternalAvg:\s*("+FP_PATTERN+")",l))
     timeInternalVar = float(getReMatch("timeInternalVar:\s*("+FP_PATTERN+")",l))
-    return funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar
+    return timeAvg,timeVar,timeInternalAvg,timeInternalVar,threadNum
 
+isClean = lambda l: len(l.strip())>1 and any(c in string.printable for c in l)
 if __name__ == "__main__":
     if "-h" in argv[1] or len(argv)<2:  print(__doc__);exit(1)
     
     executionTimes = list() #Execution tups
     with open(argv[1]) as f:    log=f.read()
-    linesGroup = [ g.split("\n") for g in log.split("##")]
+    matrixGroup = log.split("#")
+    linesGroup = [ g.split("@") for g in matrixGroup ]
     
-    for i,g in enumerate(linesGroup):
-        if len(g) < 4:  print("not complete group",i,g,file=stderr);continue
-        #splitting log parts of computation
-        header,configSiz,runtimeSchedule= g[0],g[1],g[2]
-        computes = list(filter(lambda l:"@" in l,g[2:]))
-        #parsing
+    for i,mGroup in enumerate(matrixGroup):
+        if len(mGroup) < 3:  print("not complete mGroup",i,mGroup,file=stderr);continue
+        mg = mGroup.split("\n")  
+        header,configSiz,ompRuntimeSchedule = mg[0],mg[1],mg[2]
         src = header.replace(" ","_")
+
         matSize,nnz,maxRowNNZ,gridSize,sampleSize = parseConfigSize(configSiz)
-        #preparingTime = float(getReMatch("preparing time:\s*("+FP_PATTERN+")",configSiz))
-        for l in computes:
-            funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar = parseComputeTimes(l)
-            executionTimes.append(Execution(src,funcID,timeAvg,timeVar,timeInternalAvg,timeInternalVar,matSize,nnz,maxRowNNZ,gridSize,sampleSize))
+
+        for compLinesFuncGroup in linesGroup[i][1:]: 
+            #@computing SpMV with func:ID FUNC_ID_STR at:..... 
+            compLinesFuncG = compLinesFuncGroup.split("\n")
+            computesFuncID,computesTimes = compLinesFuncG[0],compLinesFuncG[1:]
+            funcID = parseComputeFuncID(computesFuncID)
+            for l in filter(lambda l:isClean,computesTimes):
+                #-[threadNum=..],timeAvg,....
+                try: timeAvg,timeVar,timeInternalAvg,timeInternalVar,threadNum = parseComputeTimes(l)
+                except: continue;   #print("not clean line",l,file=stderr)  #TODO DEBUG
+                executionTimes.append(Execution(src,funcID,timeAvg,timeVar,timeInternalAvg,\
+                  timeInternalVar,matSize,nnz,maxRowNNZ,gridSize,sampleSize,threadNum))
     
     print(FIELDS)
     for e in executionTimes:    

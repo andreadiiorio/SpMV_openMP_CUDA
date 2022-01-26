@@ -1,8 +1,0 @@
-#/home/andysnake/Documenti/data/prj/west2021/west2021.mtx.gz
-SpGEMV_OMP_test.c	AVG_TIMES_ITERATION:5	sparse matrix: 2021x2021-7353NNZ - grid: 8x8
-omp sched gather:	kind: OMP_SCHED_DYNAMIC - monotonic: N	omp chunkSize: 1
-[1m[92m@computing SpGEMV   with func:0 at:0x403640	[0mtimeAvg:8.960200e-06 timeVar:4.585162e-12	timeInternalAvg:0.000000e+00 timeInternalVar:0.000000e+00 
-[1m[92m@computing SpGEMV   with func:1 at:0x4030f0	[0mtimeAvg:1.305000e-05 timeVar:1.982845e-11	timeInternalAvg:1.277300e-05 timeInternalVar:1.713470e-11 
-[1m[92m@computing SpGEMV   with func:2 at:0x403170	[0mtimeAvg:1.287600e-05 timeVar:9.801367e-12	timeInternalAvg:1.274460e-05 timeInternalVar:9.439805e-12 
-[1m[92m@computing SpGEMV   with func:3 at:0x403220	[0mtimeAvg:1.607362e-04 timeVar:1.761166e-09	timeInternalAvg:1.015544e-04 timeInternalVar:4.134290e-10 
-[1m[92m@computing SpGEMV   with func:4 at:0x403410	[0mtimeAvg:4.271882e-04 timeVar:2.062563e-10	timeInternalAvg:1.013600e-04 timeInternalVar:2.596762e-11 
