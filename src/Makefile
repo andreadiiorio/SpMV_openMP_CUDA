@@ -14,7 +14,7 @@ CFLAGS+=-Wno-unused-label -Wno-switch #-Wno-unused-function
 UNAME=$(shell uname -a | tr -c -d \[:alnum:\] | tr \[:lower:\] \[:upper:\] ) #upper uname-a
 TMPDIR=/run/user/$(shell id -u)/
 
-CONSTS = -DTMPDIR='"$(TMPDIR)"'     #TODO PUT IN /raccolta
+CONSTS = -DTMPDIR='"$(TMPDIR)"' #-DLIMIT_ELL_SIZE      #TODO PUT IN /raccolta
 MACROS = -DDEBUGPRINT="if(FALSE)" -DCONSISTENCY_CHECKS="if(TRUE)"
 MACROS+= -DVERBOSE="if(FALSE)"
 

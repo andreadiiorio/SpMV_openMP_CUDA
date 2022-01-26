@@ -12,7 +12,7 @@ CFLAGS=$(CWALL) $(CLIBS) $(RUNTIME) -x c
 UNAME=$(shell uname -a | tr -c -d \[:alnum:\] | tr \[:lower:\] \[:upper:\] ) #upper uname-a
 TMPDIR=/run/user/$(shell id -u)/
 #MACROS
-CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25   #TODO PUT IN /raccolta
+CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25   #-DLIMIT_ELL_ENTRIES
 MACROS = -DDEBUGPRINT="if(FALSE)" -DDEBUG="if(FALSE)" -DCONSISTENCY_CHECKS="if(FALSE)" -DVERBOSE="if(FALSE)"  -DDEBUGCHECKS="if(FALSE)" 
 MACROSDBG = -DCONSISTENCY_CHECKS="if(TRUE)"  -DDEBUGCHECKS="if(TRUE)" -DVERBOSE="if(TRUE)" -DDEBUG="if(TRUE)"
 MACROSDBG += -D DOUBLE_VECT_DIFF_EARLY_EXIT
@@ -23,6 +23,7 @@ DBG=$(CFLAGSDBG) $(UNDEF) -UAVG_TIMES_ITERATION -DAVG_TIMES_ITERATION=1 $(MACROS
 
 #CUDA NVCC
 NVCC 			 = /usr/local/cuda/bin/nvcc	#CPATH
+NVCC 			 = nvcc	#TODO SERVER
 INCLUDE_CUDA	 = -I/usr/local/cuda/include/ 
 INCLUDE_CUDA	+= -I/opt/cuda/11.2/samples/common/inc/ 
 INCLUDE_CUDA	+= -I/usr/local/cuda/samples/common/inc
@@ -31,9 +32,10 @@ WALL_CUDA		+= --Wno-deprecated-declarations --Wno-deprecated-gpu-targets
 WALL_CUDA		+= -Xcompiler -Wno-literal-suffix	#TODO not for C files f*!* warning
 #custom host compiler binDir set, TODO gcc11 not yet supported :(
 GCC_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/gcc	#/usr/bin/gcc
+GCC_SET			:= 	#TODO SERVER GCC IS NVCC COMPLIANT
 G++_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/g++	#/usr/bin/gcc
-CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
-#CCAPABILITY	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
+#CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
+CCAPABILITY	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
 OPTS_CUDA		 =  -m64 $(GCC_SET) $(MACROS)	$(CCAPABILITY)
 #SUMMARIZE CUDA OPTs
 NVCCFLAGS		 = $(WALL_CUDA) $(OPTS_CUDA) -Xcompiler -fopenmp $(INCLUDE_CUDA) $(RUNTIME)

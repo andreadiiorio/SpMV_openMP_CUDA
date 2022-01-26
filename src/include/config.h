@@ -49,7 +49,8 @@ typedef struct{
 #pragma message("ROW_LENS ARRAY ENABLED")
 #endif
 ///CONSTS
-#define ELL_MAX_ENTRIES ( 100l << 20 )  //ell max (padded) entries supported in a matrix 
+#define ELL_MAX_ENTRIES ( 6l << 27 ) //2*6GB of ell (padded) entries maxSupport in a matrix 
+#define LIMIT_ELL_SIZE				 //enable above threshold
 #define ELL_AS_FILLER       (0 )        //handled with calloc
 //TODO NOW FILLED WITH LAST NNPADDED COL #define ELL_JA_FILLER       (-1)
 //#define DOUBLE_VECT_DIFF_EARLY_EXIT 1

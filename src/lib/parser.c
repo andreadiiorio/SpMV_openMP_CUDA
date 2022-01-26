@@ -24,16 +24,16 @@ int MMCheck(MM_typecode mcode) {
 
 entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode,ulong* rowLens){
     int scanndRet=0;
-    ulong nzIdx=0;                //expanded num of nz (in case of sym matrix)
-    ulong row,col;                //current entry's row,col from MM -> 1 based
+    ulong nzTrgt=*NZ,nzIdx=0;	//expanded num of nz (in case of sym matrix)
+    ulong diagEntries=0,row,col;//current entry's row,col from MM -> 1 based
     double val;
-    entry* entries = NULL;        //COO parsed entries
+    entry* entries = NULL;		//COO parsed entries
     ///init
     if (mm_is_symmetric(mcode)){
-        (*NZ) *= 2;
+		nzTrgt = 2* (*NZ); //upscale max num of nz in the matrix
         VERBOSE     printf("MMtoCOO:\tparsing a simmetric matrix\n");
     }
-    if (!(entries     = malloc(*NZ * sizeof(*entries)))){
+    if (!(entries     = malloc(nzTrgt * sizeof(*entries)))){
         ERRPRINT("MMtoCOO:  entries malloc errd\n");
         return NULL;
     }
@@ -71,9 +71,16 @@ entry* MMtoCOO(ulong* NZ, FILE *fp, MM_typecode mcode,ulong* rowLens){
             rowLens[row-1]++;
             entries[nzIdx++]=(entry) { .row=row-1, .col=col-1, .val=val };
         }
+		else	diagEntries++;	//for CONSISTENCY_CHECKS only
     }
-   
-    CONSISTENCY_CHECKS  assert( nzIdx == *NZ );
+ 
+	//CONSISTENCY_CHECKS 
+	nzTrgt = *NZ;
+	if(mm_is_symmetric(mcode))	nzTrgt = 2*(*NZ) - diagEntries;
+    assert( nzIdx == nzTrgt );
+	
+	//update NZ 
+	*NZ = nzIdx;
     return entries;
     
     _err:
@@ -122,7 +129,6 @@ MatrixMarket* MMRead(char* matPath){
 
     err:
     freeMatrixMarket(out);
-    free(out);
     out = NULL;
     _end:
     fclose(fp);
@@ -198,6 +204,7 @@ int COOtoELL(entry* entries, spmat* mat, ulong* rowLens){
     entry* e;
     for (ulong i=0; i<mat->M; i++)  maxRow = MAX(maxRow,rowLens[i]); 
     _ellEntriesTot = 2*mat->M*maxRow;
+	#ifdef LIMIT_ELL_SIZE
     if ( _ellEntriesTot > ELL_MAX_ENTRIES ){
         ERRPRINTS("Required entries %lu -> %lu uMB for the matrix exceed the "
           "designated threashold of: %lu  -> %lu MB for ellpack\n",
@@ -205,6 +212,7 @@ int COOtoELL(entry* entries, spmat* mat, ulong* rowLens){
           ELL_MAX_ENTRIES,(sizeof(double)*ELL_MAX_ENTRIES) >> 20);
         return EXIT_FAILURE;
     }
+	#endif
     //malloc aux vects
     if (!(rowsNextCol = calloc(mat->M,sizeof(*rowsNextCol)))){
         ERRPRINT("MMtoELL:\trowsNextCol calloc errd\n");
@@ -274,11 +282,11 @@ spmat* MMtoCSR(char* matPath){
     spmat* mat    = NULL;
     MatrixMarket* mm = MMRead(matPath);
     if (!mm){
-        ERRPRINT("MatrixMarket parse err\n");
+        ERRPRINT("MMtoCSR parse err\n");
         return NULL;
     }
     if (!(mat = calloc(1,sizeof(*mat)))){
-        ERRPRINT(" mat struct alloc errd");
+        ERRPRINT("MMtoCSR: mat struct alloc errd");
         goto err;
     }
     mat -> M = mm->M;
@@ -286,16 +294,16 @@ spmat* MMtoCSR(char* matPath){
     mat -> NZ= mm->NZ;
     //alloc sparse matrix components
     if (!(mat->IRP = calloc(mat->M+1,sizeof(*(mat->IRP))))){
-        ERRPRINT("IRP calloc err\n");
+        ERRPRINT("MMtoCSR: IRP calloc err\n");
         goto err;
     }
     ////alloc core struct of CSR
     if(!(mat->JA = malloc(mat->NZ*sizeof(*(mat->JA))))){
-        ERRPRINT("JA malloc err\n");
+        ERRPRINT("MMtoCSR: JA malloc err\n");
         goto err; 
     }
     if(!(mat->AS = malloc(mat->NZ*sizeof(*(mat->AS))))){
-        ERRPRINT("AS malloc err\n");
+        ERRPRINT("MMtoCSR: AS malloc err\n");
         goto err;  
     }
     if (COOtoCSR(mm->entries,mat,mm->rowLens))  goto err;
@@ -323,11 +331,11 @@ spmat* MMtoELL(char* matPath){
     spmat* mat    = NULL;
     MatrixMarket* mm = MMRead(matPath);
     if (!mm){
-        ERRPRINT("MatrixMarket parse err\n");
+        ERRPRINT("MMtoELL: parse err\n");
         return NULL;
     }
     if (!(mat = calloc(1,sizeof(*mat)))){
-        ERRPRINT(" mat struct alloc errd");
+        ERRPRINT("MMtoELL:  mat struct alloc errd");
         goto err;
     }
     ////alloc core struct of CSR

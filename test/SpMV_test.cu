@@ -97,8 +97,8 @@ static inline int testSpMVImplCuda(SPMV_CUDA_INTERF f,spmat* dMat, spmat* hmat,
 		if(cudaErr(cudaMemcpy(hOutV,dOutV,sizeof(*hOutV)*hmat->M,dirDown),
 		  "CUDA downloadResoult"))
 			return EXIT_FAILURE;
-        //TODO !!! if (doubleVectorsDiff(oracleOut,hOutV,hmat->M,NULL)) return EXIT_FAILURE;
-        doubleVectorsDiff(oracleOut,hOutV,hmat->M,NULL);
+        if (doubleVectorsDiff(oracleOut,hOutV,hmat->M,NULL)) return EXIT_FAILURE;
+        //doubleVectorsDiff(oracleOut,hOutV,hmat->M,NULL);
         times[i]        = Elapsed;
         timesInteral[i] = ElapsedInternal;
 
@@ -244,14 +244,14 @@ int main(int argc, char** argv){
 	if(cudaErr( cudaMalloc(&dMat,sizeof(*dMat)),"dMat"))			goto _free;
 	if(cudaErr( cudaMalloc(&dVect,sizeof(*dVect)*mat->N),"dVect"))	goto _free;
 	if(cudaErr( cudaMalloc(&dOutV,sizeof(*dOutV)*mat->M),"dOutV"))	goto _free;
-	if((out = cudaErr(cudaMemcpy(dVect,vector,sizeof(*dVect)*mat->N,dirUp),"dVectUp")))
+	if(cudaErr(cudaMemcpy(dVect,vector,sizeof(*dVect)*mat->N,dirUp),"dVectUp"))
 		goto _free;
 	rowsComputeNum = mat->M;
 	//1thread per row->col	1D-1D threading, easiest implementation for both CSR,CUDA
 	//Conf.sharedMemSize= 		sizeof(*dOutV) * mat->M;
 	Conf.blockSize		= 		dim3( BLOCKS_1D );
 	Conf.gridSize 		= 		dim3( INT_DIV_CEIL(rowsComputeNum,BLOCKS_1D) );
-	//if((out = cudaErr(cudaMemcpy(&ConfD,&Conf,sizeof(Conf),dirUp),"dConfUp")))			goto _free;
+	//if(cudaErr(cudaMemcpy(&ConfD,&Conf,sizeof(Conf),dirUp),"dConfUp")))			goto _free;
 	SPMV_CUDA_INTERF funcCuda;
 
 	///CSR IMPLEMENTATIONs
@@ -310,7 +310,7 @@ int main(int argc, char** argv){
     }
 	assert( !(cudaFreeSpmat(&dMatCopy)));
 	//TODO NVCC MESS UP WITH OMP COMPILATION...??? MOVED HERE TO TEST ONLY CUDA
-	out = EXIT_SUCCESS;	goto _free;
+	goto _freeSuccess;
     #endif //__CUDACC__
 
 	DEBUG  	hprintf("\n\ntesting OMP IMPLEMENTATIONS\n");
@@ -333,7 +333,8 @@ int main(int argc, char** argv){
         hprintsf("@computing SpMV   with func:\%u OMP ELL at:%p\t",f,spmvFunc);
         if(testSpMVImpl(spmvFunc,mat,vector,outV,oracleOut))  goto _free;
     }
-
+	
+	_freeSuccess:
     out = EXIT_SUCCESS;
     _free:
     if (matCSR)       freeSpmat(matCSR);
