@@ -1,21 +1,23 @@
 #cavity10
-SpMV_OMP_test.c	AVG_TIMES_ITERATION:25	sparse matrix: 2597x2597-76367NNZ-62=MAX_ROW_NZ - grid: 8x8
+SpMV_OMP_test.c	AVG_TIMES_ITERATION:25	sparse matrix: 2597x2597-76367NNZ-62=MAX_ROW_NZ
 omp sched gather:	kind: OMP_SCHED_DYNAMIC	omp chunkSize: 1	monotonic: N
-[1m[92m@computing SpMV   with func:0 CUDA CSR at:0x40d6dc
-[0mblockSize: 256 1 1	gridSize: 11 1 1		timeAvg:3.596000e-05 timeVar:4.118400e-12	timeInternalAvg:3.596000e-05 timeInternalVar:4.118400e-12 
-[1m[92m@computing SpMV   with func:1 CUDA CSR at:0x40d85a
-[0mblockSize: 32 32 1	gridSize: 82 1 1		timeAvg:4.828000e-05 timeVar:3.615998e-13	timeInternalAvg:4.828000e-05 timeInternalVar:3.615998e-13 
-[1m[92m@computing SpMV   with func:0 CUDA ELL at:0x40d85a
-[0mblockSize: 32 32 1	gridSize: 82 1 1		timeAvg:6.631600e-04 timeVar:1.629442e-11	timeInternalAvg:6.631600e-04 timeInternalVar:1.629442e-11 
-[1m[92m@computing SpMV   with func:1 CUDA ELL at:0x40d9d8
-[0mblockSize: 32 32 1	gridSize: 82 1 1		timeAvg:1.671440e-03 timeVar:3.544638e-11	timeInternalAvg:1.671440e-03 timeInternalVar:3.544638e-11 
-[1m[92m@computing SpMV   with func:2 CUDA ELL at:0x40db56
-[0mblockSize: 32 32 1	gridSize: 82 1 1		timeAvg:6.576000e-05 timeVar:2.582400e-12	timeInternalAvg:6.576000e-05 timeInternalVar:2.582400e-12 
-[1m[92m@computing SpMV   with func:0 OMP CSR at:0x40b5a4
-[0mthreadNum:8	timeAvg:2.786824e-04 timeVar:1.014252e-10	timeInternalAvg:0.000000e+00 timeInternalVar:0.000000e+00 
-[1m[92m@computing SpMV   with func:1 OMP CSR at:0x40ad54
-[0mthreadNum:8	timeAvg:8.181016e-05 timeVar:3.212985e-09	timeInternalAvg:8.145852e-05 timeInternalVar:3.094318e-09 
-[1m[92m@computing SpMV   with func:2 OMP CSR at:0x40ae14
-[0mthreadNum:8	timeAvg:7.021824e-05 timeVar:9.260175e-13	timeInternalAvg:7.007360e-05 timeInternalVar:9.256646e-13 
-[1m[92m@computing SpMV   with func:3 OMP CSR at:0x40af2a
-[0mthreadNum:8	timeAvg:5.202875e-04 timeVar:3.147861e-10	timeInternalAvg:1.938367e-04 timeInternalVar:1.755461e-11 
+[1m[92m@computing SpMV   with func: CUDA CSR 0 at:0x40d6da
+[0mcudaBlockSize: 256 1 1	cudaGridSize: 11 1 1		timeAvg:3.588000e-05 timeVar:3.705601e-12	timeInternalAvg:3.588000e-05 timeInternalVar:3.705601e-12 
+[1m[92m@computing SpMV   with func: CUDA CSR 1 at:0x40d858
+[0mcudaBlockSize: 32 32 1	cudaGridSize: 82 1 1		timeAvg:4.828000e-05 timeVar:4.415998e-13	timeInternalAvg:4.828000e-05 timeInternalVar:4.415998e-13 
+[1m[92m@computing SpMV   with func: CUDA ELL 0 at:0x40d858
+[0mcudaBlockSize: 32 32 1	cudaGridSize: 82 1 1		timeAvg:6.643200e-04 timeVar:1.165761e-11	timeInternalAvg:6.643200e-04 timeInternalVar:1.165761e-11 
+[1m[92m@computing SpMV   with func: CUDA ELL 1 at:0x40d9d6
+[0mcudaBlockSize: 32 32 1	cudaGridSize: 82 1 1		timeAvg:1.673440e-03 timeVar:2.368643e-11	timeInternalAvg:1.673440e-03 timeInternalVar:2.368643e-11 
+[1m[92m@computing SpMV   with func: CUDA ELL 2 at:0x40db54
+[0mcudaBlockSize: 32 32 1	cudaGridSize: 82 1 1		timeAvg:6.656000e-05 timeVar:6.006399e-12	timeInternalAvg:6.656000e-05 timeInternalVar:6.006399e-12 
+[1m[92m@computing SpMV   with func: OMP CSR 0 at:0x40b5a2
+[0mthreadNum: 8	ompGridSize: 8x8	timeAvg:2.801316e-04 timeVar:1.412981e-10	timeInternalAvg:0.000000e+00 timeInternalVar:0.000000e+00 
+[1m[92m@computing SpMV   with func: OMP CSR 1 at:0x40ad52
+[0mthreadNum: 8	ompGridSize: 8x8	timeAvg:8.177216e-05 timeVar:3.228289e-09	timeInternalAvg:8.139936e-05 timeInternalVar:3.091232e-09 
+[1m[92m@computing SpMV   with func: OMP CSR 2 at:0x40ae12
+[0mthreadNum: 8	ompGridSize: 8x8	timeAvg:7.026888e-05 timeVar:4.887071e-13	timeInternalAvg:7.012676e-05 timeInternalVar:4.906785e-13 
+[1m[92m@computing SpMV   with func: OMP CSR 3 at:0x40af28
+[0mthreadNum: 8	ompGridSize: 8x8	timeAvg:5.207453e-04 timeVar:2.893602e-10	timeInternalAvg:1.948084e-04 timeInternalVar:1.025978e-11 
+[1m[92m@computing SpMV   with func: OMP CSR 4 at:0x40b23e
+[0m

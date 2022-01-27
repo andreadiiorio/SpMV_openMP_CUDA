@@ -73,8 +73,9 @@ static inline int testSpMVImplOMP(SPMV_INTERF f,spmat* mat,double* vector,
     	}
     	statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
     	statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);
-    	printf("threadNum:%d\ttimeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
-    	  threadNum,elapsedStats[0],elapsedStats[1],
+    	printf("threadNum: %d\tompGridSize: %ux%u\t"
+		  "timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
+    	  threadNum,Conf.gridRows,Conf.gridCols,elapsedStats[0],elapsedStats[1],
 		  elapsedInternalStats[0],elapsedInternalStats[1]);
 	#ifdef DECREASE_THREAD_NUM
 	}
@@ -118,7 +119,7 @@ static inline int testSpMVImplCuda(SPMV_CUDA_INTERF f,spmat* dMat, spmat* hmat,
     }
     statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
     statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);
-    printf("blockSize: %u %u %u\tgridSize: %u %u %u\t\t"
+    printf("cudaBlockSize: %u %u %u\tcudaGridSize: %u %u %u\t\t"
 	  "timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
 	  Conf.blockSize.x, Conf.blockSize.y, Conf.blockSize.z, 
 	  Conf.gridSize.x,Conf.gridSize.y, Conf.gridSize.z,
@@ -234,9 +235,8 @@ int main(int argc, char** argv){
         VERBOSE printf("configuration changed from env\n");
     }
     printf("SpMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
-      "sparse matrix: %lux%lu-%luNNZ-%ld=MAX_ROW_NZ - grid: %ux%u\n",
-      AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,matELL?matELL->MAX_ROW_NZ:0,
-	  Conf.gridRows,Conf.gridCols);
+      "sparse matrix: %lux%lu-%luNNZ-%ld=MAX_ROW_NZ\n",
+      AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,matELL?matELL->MAX_ROW_NZ:0);
     //extra configuration
     maxThreads = omp_get_max_threads();
     Conf.threadNum = (uint) maxThreads;
@@ -284,7 +284,7 @@ int main(int argc, char** argv){
 			Conf.gridSize	= 	dim3( INT_DIV_CEIL(mat->M,BLOCKS_2D_WARP_R) );
 		}
         funcCuda = SpmvCUDA_CSRFuncs[f];
-        hprintsf("@computing SpMV   with func:\%u CUDA CSR at:%p\n",f,funcCuda);
+        hprintsf("@computing SpMV   with func: CUDA CSR %u at:%p\n",f,funcCuda);
         if(testSpMVImplCuda(funcCuda,dMat,matCSR,dVect,dOutV,outV,oracleOut))
 			goto _free;
     }
@@ -317,7 +317,7 @@ int main(int argc, char** argv){
 			Conf.gridSize	= 	dim3( INT_DIV_CEIL(mat->M,BLOCKS_2D_WARP_R) );
 		}
 
-        hprintsf("@computing SpMV   with func:\%u CUDA ELL at:%p\n",f,funcCuda);
+        hprintsf("@computing SpMV   with func: CUDA ELL %u at:%p\n",f,funcCuda);
         funcCuda = SpmvCUDA_ELLFuncs[f];
         if(testSpMVImplCuda(funcCuda,dMat,matELLTrgt,dVect,dOutV,outV,oracleOut))  
 			goto _free;
@@ -335,7 +335,7 @@ int main(int argc, char** argv){
     SPMV_INTERF spmvFunc;
     for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpmvCSRFuncs); f++){
         spmvFunc = SpmvCSRFuncs[f];
-        hprintsf("@computing SpMV   with func:\%u OMP CSR at:%p\n",f,spmvFunc);
+        hprintsf("@computing SpMV   with func: OMP CSR %u at:%p\n",f,spmvFunc);
         if(testSpMVImplOMP(spmvFunc,mat,vector,outV,oracleOut))  goto _free;
     }
 	//#ifndef __CUDACC__	//TODO NVCC MESSED AROUND->MOVD useful for later tests
@@ -348,7 +348,7 @@ int main(int argc, char** argv){
 	mat = matELL;
     for (uint f=0; f<STATIC_ARR_ELEMENTS_N(SpmvELLFuncs); f++){
         spmvFunc = SpmvELLFuncs[f];
-        hprintsf("@computing SpMV   with func:\%u OMP ELL at:%p\n",f,spmvFunc);
+        hprintsf("@computing SpMV   with func: OMP ELL %u at:%p\n",f,spmvFunc);
         if(testSpMVImplOMP(spmvFunc,mat,vector,outV,oracleOut))  goto _free;
     }
 	
