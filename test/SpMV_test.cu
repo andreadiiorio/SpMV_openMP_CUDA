@@ -118,7 +118,10 @@ static inline int testSpMVImplCuda(SPMV_CUDA_INTERF f,spmat* dMat, spmat* hmat,
     }
     statsAvgVar(times,AVG_TIMES_ITERATION,elapsedStats);
     statsAvgVar(timesInteral,AVG_TIMES_ITERATION,elapsedInternalStats);
-    printf("timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
+    printf("blockSize: %u %u %u\tgridSize: %u %u %u\t\t"
+	  "timeAvg:%le timeVar:%le\ttimeInternalAvg:%le timeInternalVar:%le \n",
+	  Conf.blockSize.x, Conf.blockSize.y, Conf.blockSize.z, 
+	  Conf.gridSize.x,Conf.gridSize.y, Conf.gridSize.z,
       elapsedStats[0],elapsedStats[1],elapsedInternalStats[0],elapsedInternalStats[1]);
     return EXIT_SUCCESS;
 }
@@ -320,8 +323,12 @@ int main(int argc, char** argv){
 			goto _free;
     }
 	assert( !(cudaFreeSpmat(&dMatCopy)));
+
 	//TODO NVCC MESS UP WITH OMP COMPILATION...??? MOVED HERE TO TEST ONLY CUDA
+	#ifdef CUDA_ONLY
 	goto _freeSuccess;
+	#endif
+
     #endif //__CUDACC__
 
 	DEBUG  	hprintf("\n\ntesting OMP IMPLEMENTATIONS\n");

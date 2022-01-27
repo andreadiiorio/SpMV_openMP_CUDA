@@ -42,7 +42,7 @@ ifeq ($(NVCC_AVAIL),0)
 	CCAPABILITY	 	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
 endif
 
-OPTS_CUDA		 =  -m64 $(GCC_SET) $(MACROS)	$(CCAPABILITY)
+OPTS_CUDA		 =  -m64 $(GCC_SET) $(MACROS)	$(CCAPABILITY) -DCUDA_ONLY
 #SUMMARIZE CUDA OPTs
 NVCCFLAGS		 = $(WALL_CUDA) $(OPTS_CUDA) -Xcompiler -fopenmp $(INCLUDE_CUDA) $(RUNTIME)
 NVCCFLAGSDBG	 = -g -G #export CUDA_DEBUGGER_SOFTWARE_PREEMPTION=1; set cuda api_failures stop
@@ -98,6 +98,9 @@ test_SpMV_OMP.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       -UAVG_TIMES_ITERATION  -DAVG_TIMES_ITERATION=1 $(UNDEF) -DVERBOSE="if(TRUE)" 
 ##CUDA VERSIONS
+test_SpMV_CUDA_OMP_Stats.o:	$(testSrcsAll) 
+	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) -UCUDA_ONLY 
+
 test_SpMV_CUDA_Stats.o:	$(testSrcsAll) 
 	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
 
