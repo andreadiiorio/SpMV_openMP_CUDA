@@ -23,7 +23,7 @@ _FIELDS_OPT_OMP  = "ompSchedKind,ompChunkSize,ompMonotonic,threadNum,ompGridSize
 _FIELDS_OPT_CUDA = "blockSize_x,blockSize_y,blockSize_z,gridSize_x,gridSize_y,gridSize_z"
 _FIELDS_OPT      = _FIELDS_OPT_OMP + "," + _FIELDS_OPT_CUDA
 FIELDS      = _FIELDS + "," + _FIELDS_OPT
-Execution = namedtuple("Execution",FIELDS,defaults=[None]*len(_FIELDS_OPT.split(",")) )
+Execution = namedtuple("Execution",FIELDS) #,defaults=[None]*len(_FIELDS_OPT.split(",")) )
 
 hasFields = lambda l: len(l.strip().split()) > 2
 getReGroups=lambda pattern,string:\
@@ -67,7 +67,7 @@ def parseCompute(l):
     try:        
             cudaBlkSize   = getReMatch("cudaBlockSize:\s*(\d+\s+\d+\s+\d+)",l).split()
             cudaGridSize  = getReMatch("cudaGridSize:\s*(\d+\s+\d+\s+\d+)",l).split()
-    except: cudaBlkSize,cudaGridSize = [],[]
+    except: cudaBlkSize,cudaGridSize = [None]*3,[None]*3
     timeAvg = float(getReMatch("timeAvg:\s*("+FP_PATTERN+")",l))
     timeVar = float(getReMatch("timeVar:\s*("+FP_PATTERN+")",l))
     timeInternalAvg = float(getReMatch("timeInternalAvg:\s*("+FP_PATTERN+")",l))
@@ -111,8 +111,9 @@ if __name__ == "__main__":
                 #obfuscate default prints for easier reading tables
                 isCudaEntry      = None in ompGridSize
                 if isCudaEntry:
-                    _ompSchedCfg = [None] * len(_ompSchedCfg)
-                    threadN      = None
+                    _ompSchedCfg    = [None] * len(_ompSchedCfg)
+                    threadN         = None
+                    tIntAvg,tIntVar = None,None #TODO mesured kernel time only
                 #else:  #OMP ENTRY, ... 
 
                 #insert parsed compute entries infos

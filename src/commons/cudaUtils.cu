@@ -57,8 +57,9 @@ int spMatCpyELL(spmat* m,spmat* dst){
   	if(cudaErr( cudaMallocPitch(&dstLocal.AS,&pitchASB,maxRow*asB,m->M), errS))						goto err;
 	if(cudaErr( cudaMemcpy2D(dstLocal.AS,pitchASB,m->AS,maxRow*asB,maxRow*asB,m->M,dirUp), errS))	goto err;
 	#ifdef ROWLENS
-	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))					goto err;
-	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))				goto err;
+	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL))*dstLocal.M), errS))					goto err;
+	//if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,0,dirUp),errS))				goto err;
+	if(cudaErr( cudaMemcpy( dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)) * dstLocal.M,dirUp), errS))	goto err;
 	#endif
 	//set pitches as num of elements
 	dstLocal.pitchJA = pitchJAB / sizeof(*(dstLocal.JA));
@@ -100,7 +101,7 @@ int spMatCpyELLNNPitched(spmat* m,spmat* dst){
 	if(cudaErr( cudaMemcpy(dstLocal.AS,m->AS,maxRow*asB*m->M,dirUp), errS))	goto err;
 	#ifdef ROWLENS
 	if(cudaErr( cudaMalloc(&dstLocal.RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))					goto err;
-	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL)*dstLocal.M)), errS))				goto err;
+	if(cudaErr( cudaMemcpy(dstLocal.RL,m->RL,sizeof(*(dstLocal.RL))*dstLocal.M,dirUp), errS))				goto err;
 	#endif
 	//set pitches as num of elements
 	dstLocal.pitchJA = dstLocal.MAX_ROW_NZ;

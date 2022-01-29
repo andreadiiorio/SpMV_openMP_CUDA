@@ -316,7 +316,7 @@ static inline int rndDouble_sinDecimal(double* d){
         ERRPRINT("read_wrap failed to read holder for rnd double\n");
         return EXIT_FAILURE;
     }
-    *d = (_rndHold % MAXRND) + sin(_rndHold);
+    *d = (_rndHold % (ulong) ceil(MAXRND)) + sin(_rndHold);
     return EXIT_SUCCESS;
 }
    
@@ -333,7 +333,7 @@ void statsAvgVar(double* values,uint numVals, double* out){
 /// MATRIX - VECTOR COMPUTE UTILS
 int fillRndVector(ulong size, double* v){
     for( ulong x=0; x<size; ++x ){
-        if(rndDouble_sinDecimal( v+x )) return EXIT_FAILURE;
+        if(rndDouble_sinAll( v+x )) return EXIT_FAILURE;
         #ifdef RNDVECTMIN
         v[x] += RNDVECTMIN;
         #endif

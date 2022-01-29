@@ -12,7 +12,7 @@ CFLAGS=$(CWALL) $(CLIBS) $(RUNTIME) -x c
 UNAME=$(shell uname -a | tr -c -d \[:alnum:\] | tr \[:lower:\] \[:upper:\] ) #upper uname-a
 TMPDIR=/run/user/$(shell id -u)/
 #MACROS
-CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25   #-DLIMIT_ELL_ENTRIES
+CONSTS = -DTMPDIR='"$(TMPDIR)"'  -DAVG_TIMES_ITERATION=25  -DROWLENS  #-DLIMIT_ELL_ENTRIES
 MACROS = -DDEBUGPRINT="if(FALSE)" -DDEBUG="if(FALSE)" -DCONSISTENCY_CHECKS="if(FALSE)" -DVERBOSE="if(FALSE)"  -DDEBUGCHECKS="if(FALSE)" 
 MACROSDBG = -DCONSISTENCY_CHECKS="if(TRUE)"  -DDEBUGCHECKS="if(TRUE)" -DVERBOSE="if(TRUE)" -DDEBUG="if(TRUE)"
 MACROSDBG += -D DOUBLE_VECT_DIFF_EARLY_EXIT
@@ -35,10 +35,10 @@ G++_SET			:= -ccbin=/home/andysnake/DATA/SW/gcc_s/gcc-9.4.0/build/bin/g++	#/usr/
 CCAPABILITY		 = -gencode arch=compute_50,code=sm_50 		#NV960M 			DELL
 
 #recognize if on server or on dell: dellLaptop=CUDA-manual GCC installed
-NVCC_AVAIL		:= $(shell which nvcc 2> /dev/null; echo $$?)
+NVCC_AVAIL		:= $(shell which nvcc 1>2 2> /dev/null; echo $$?)
 ifeq ($(NVCC_AVAIL),0)	
 	NVCC 			 = nvcc	#TODO SERVER
-	GCC_SET			:= 	#TODO SERVER GCC IS NVCC COMPLIANT
+	GCC_SET			 = 	#TODO SERVER GCC IS NVCC COMPLIANT
 	CCAPABILITY	 	 = -gencode arch=compute_75,code=sm_75 	#Quadro RTX 5000	SERVER
 endif
 
@@ -90,6 +90,8 @@ test_SpMV_OMP_Stats.o:	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) 
 test_SpMV_OMP_Stats_DECREASING_T_NUM.o:	$(testSrcsOmp) 
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) -DDECREASE_THREAD_NUM 
+test_SpMV_OMP_Stats_NO_SIMD_DECREASING_T_NUM.o:	$(testSrcsOmp) 
+	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) -DDECREASE_THREAD_NUM -DSIMD_ROWS_REDUCTION=FALSE
 
 test_SpMV_OMP_Stats_NoReductionSIMD.o:	$(testSrcsOmp) 
 	$(CC)  -o $@ $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS)  -DSIMD_ROWS_REDUCTION=FALSE
@@ -110,6 +112,9 @@ test_SpMV_CUDA.o: 	$(testSrcsAll)
 test_SpMV_CUDA_DBG.o: 	$(testSrcsAll) 
 	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
       $(UNDEF) -DVERBOSE="if(TRUE)" $(DBG_CUDA)
+test_SpMV_CUDA_NO_DBG_ROWLENS.o: 	$(testSrcsAll) 
+	$(NVCC) -o $@  $(NVCCFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+      $(UNDEF) -DVERBOSE="if(TRUE)" $(DBG_CUDA) -UROWLENS
 ##DEBUG BUILDS
 test_SpMV_OMP_DBG.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) $(DBG) 
@@ -119,6 +124,9 @@ test_SpMV_OMP_DBG_DECREASING_T_NUM.o: 	$(testSrcsOmp)
 test_SpMV_OMP_DBG_NoReductionSIMD.o: 	$(testSrcsOmp)
 	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
 	 $(DBG)  -DSIMD_ROWS_REDUCTION=FALSE
+test_SpMV_OMP_DBG_NoROWLENS.o: 	$(testSrcsOmp)
+	$(CC) -o $@  $(CFLAGS) -I$(srcDir)/include/  $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+	 $(DBG)  -DSIMD_ROWS_REDUCTION=FALSE -UROWLENS
 
 test_CBLAS_SpMV_OMP.elf: 	$(testSrcsOmp) SpMV_CBLAS.c
 	mkdir -p /tmp/oldBuilds
@@ -142,12 +150,12 @@ testAll:
 	$(shell bash ../scripts/testAllMatrixGroups.sh | tee - > log/testAll$GRID_ROWSXGRID_COLS )
 	#$(shell cat ../../data/matrixGroups.list | xargs -L 1 sh -c 'echo $0 ${@};./test_CBLAS_SpMV_OMP.elf $0 ${@}' ) #TODO FIX
 
-sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
-	$(CC) -o $@ $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
-	    -D MAIN_SPMAT_IMG 
-sparseMatrixToImageTest.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
-	$(CC) -o $@ $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
-	    -D MAIN_SPMAT_IMG 	-DTEST  $(CFLAGSDBG)
+#sparseMatrixToImage.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
+#	$(CC) -o $@ $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+#	    -D MAIN_SPMAT_IMG 
+#sparseMatrixToImageTest.o:	sparseMatrixToImage.c sparseMatrixToImage.h $(coreSrcs)
+#	$(CC) -o $@ $(CFLAGS) -I$(srcDir)/include -I. $(filter-out %.h,$^) $(CONSTS) $(MACROS) \
+#	    -D MAIN_SPMAT_IMG 	-DTEST  $(CFLAGSDBG)
 clean:
 	rm -f *.elf
 	rm -f *.o

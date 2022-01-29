@@ -92,7 +92,7 @@ inline int allocSpMatrixInternal(ulong rows, ulong cols, spmat* mat){
         return EXIT_FAILURE;
     }
 #ifdef ROWLENS
-    if (!(mat->RL = malloc(mat->M*sizeof(*(mat->RL))))){
+    if (!(mat->RL = (typeof(mat->RL)) malloc(mat->M*sizeof(*(mat->RL))))){
         ERRPRINT("RL calloc err\n");
         freeSpmatInternal(mat);
         return EXIT_FAILURE;

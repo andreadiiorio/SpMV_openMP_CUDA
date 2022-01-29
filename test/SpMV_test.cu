@@ -234,6 +234,7 @@ int main(int argc, char** argv){
     if (!getConfig(&Conf)){
         VERBOSE printf("configuration changed from env\n");
     }
+    printf("#%s\n",argv[1]);
     printf("SpMV_OMP_test.c\tAVG_TIMES_ITERATION:%d\t"
       "sparse matrix: %lux%lu-%luNNZ-%ld=MAX_ROW_NZ\n",
       AVG_TIMES_ITERATION,mat->M,mat->N,mat->NZ,matELL?matELL->MAX_ROW_NZ:0);

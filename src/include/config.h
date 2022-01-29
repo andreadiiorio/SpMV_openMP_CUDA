@@ -80,9 +80,9 @@ typedef struct{
     //TODO SOME TRICK TO HAVE 1! PRINT
 #endif
 extern double Start,End,Elapsed,ElapsedInternal;
-#define DOUBLE_DIFF_THREASH         7e-5
+#define DOUBLE_DIFF_THREASH         7e-4
 #define DRNG_DEVFILE                "/dev/urandom"
-#define MAXRND                      1
+#define MAXRND                      3e-5
 #ifndef TMPDIR
     #define TMPDIR                      "/tmp/"
 #endif
