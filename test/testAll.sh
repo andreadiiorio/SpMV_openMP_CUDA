@@ -18,10 +18,10 @@ if [ $CUDA ];then
 	done; echo echo "done CUDA";
 fi
 if [ $OMP ];then
-	TEST_BIN=./test_SpMV_OMP_Stats_DECREASING_T_NUM.o
-	if [ $DEBUG ];then TEST_BIN=./test_SpMV_OMP_DBG.o;	trgtMatrixes=${matrixesList[@]};fi
-
 	export GRID_ROWS=8 GRID_COLS=5;ompConf="$GRID_ROWS"X"$GRID_COLS"_"$OMP_SCHEDULE"
+	TEST_BIN=./test_SpMV_OMP_Stats_NoReductionSIMD.o #./test_SpMV_OMP_Stats_DECREASING_T_NUM.o
+	if [ $DEBUG ];then TEST_BIN=./test_SpMV_OMP_DBG.o;	trgtMatrixes=${matrixesList[@]};ompConf+="_DBG_";fi
+
 	for m in ${matrixes[@]};do		echo "#$m" ; ( $TEST_BIN $m RNDVECT | tee -a "log/testAll_$ompConf.log" ) || echo $m | tee -a log/testAllOMP_"$ompConf"_errors; done; echo echo "done $GRID_ROWS X $GRID_COLS"
 	if [ $DEBUG ];then exit $?;fi
 	export GRID_ROWS=5 GRID_COLS=8;ompConf="$GRID_ROWS"X"$GRID_COLS"_"$OMP_SCHEDULE"

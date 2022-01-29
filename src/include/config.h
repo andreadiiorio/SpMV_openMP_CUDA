@@ -79,6 +79,19 @@ typedef struct{
     #pragma message("SIMD_ROWS_REDUCTION enabled")
     //TODO SOME TRICK TO HAVE 1! PRINT
 #endif
+
+//#ifdef __CUDACC_	//CUDA CONFIG //TODO not defined here
+///threading sizeing
+#ifndef BLOCKS_1D
+	#define BLOCKS_1D			( 1u << 8 )
+	#pragma message("CUDA BLOCKS_1D: " STRIFY(BLOCKS_1D))
+#endif
+#ifndef BLOCKS_2D_WARP_R
+	#define BLOCKS_2D_WARP_R	( 1u << (10-5) )
+	#pragma message("CUDA BLOCKS_2D_WARP_R: " STRIFY(BLOCKS_2D_WARP_R))
+#endif
+//#endif	//__CUDACC_
+
 extern double Start,End,Elapsed,ElapsedInternal;
 #define DOUBLE_DIFF_THREASH         7e-4
 #define DRNG_DEVFILE                "/dev/urandom"

@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include "macros.h"
+#include "config.h"
 #include "sparseMatrix.h"
 
 ///COMPUTE MODES
@@ -123,9 +124,6 @@ static const SPMV_CUDA_INTERF SpmvCUDA_ELLFuncs[] = {
 #define SpmvCUDA_ELLFuncs_NN_TraposedImpl 	1 
 #define SpmvCUDA_ELLFuncs_WarpPerRowIdx 	2
 
-///threading sizeing
-#define BLOCKS_1D			( 1u << 8 )
-#define BLOCKS_2D_WARP_R	( 1u << (10-5) )
 #endif //__CUDACC__
 
 
