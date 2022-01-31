@@ -1,6 +1,6 @@
 /*
  * enahanced from https://gist.github.com/xianyi/5780018 ADAPTED FOR LAPACK.CBLAS to perform a regular matrix multiplication
- *
+ * AndreaDiIorio
  * BUILDABLE FROM CBLAS DIR -- STATIC LINK WITH gfortran
  *  gcc -O3 -I../include -c -o cblas_dgemmTemplate.o cblas_dgemmTemplate.c
  *  gfortran -O2 -frecursive  -o cblas_dgemmTemplate  cblas_dgemmTemplate.o  ../../libcblas.a ../../librefblas.a
